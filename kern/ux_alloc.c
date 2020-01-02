@@ -6,8 +6,6 @@
 #include <linux/mm.h>
 #include <linux/slab.h>
 #include <linux/init.h>
-#include <linux/locks.h>
-#include <linux/smp_lock.h>
 #include <asm/uaccess.h>
 #include "ux_fs.h"
 
@@ -19,7 +17,7 @@
 ino_t
 ux_ialloc(struct super_block *sb)
 {
-        struct ux_fs          *fs = (struct ux_fs *)sb->s_private;
+        struct ux_fs          *fs = (struct ux_fs *)sb->s_fs_info;
         struct ux_superblock  *usb = fs->u_sb;
         int                   i;
 
@@ -31,7 +29,7 @@ ux_ialloc(struct super_block *sb)
                 if (usb->s_inode[i] == UX_INODE_FREE) {
                         usb->s_inode[i] = UX_INODE_INUSE;
                         usb->s_nifree--;
-                        sb->s_dirt = 1;
+                        //TODO sb->s_dirt = 1;
                         return i;
                 }
         }
@@ -47,7 +45,7 @@ ux_ialloc(struct super_block *sb)
 __u32
 ux_block_alloc(struct super_block *sb)
 {
-        struct ux_fs          *fs = (struct ux_fs *)sb->s_private;
+        struct ux_fs          *fs = (struct ux_fs *)sb->s_fs_info;
         struct ux_superblock  *usb = fs->u_sb;
         int                   i;
 
@@ -65,7 +63,7 @@ ux_block_alloc(struct super_block *sb)
                 if (usb->s_block[i] == UX_BLOCK_FREE) {
                         usb->s_block[i] = UX_BLOCK_INUSE;
                         usb->s_nbfree--;
-                        sb->s_dirt = 1;
+                        //TODO sb->s_dirt = 1;
                         return UX_FIRST_DATA_BLOCK + i;
                 }
         }
