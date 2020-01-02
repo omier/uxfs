@@ -2,12 +2,13 @@
 /*--------------------------- ux_inode.c -----------------------*/
 /*--------------------------------------------------------------*/
 
+#include <linux/fs.h>
+#include <linux/buffer_head.h>
+#include <linux/statfs.h>
 #include <linux/module.h>
 #include <linux/mm.h>
 #include <linux/slab.h>
 #include <linux/init.h>
-#include <linux/locks.h>
-#include <linux/smp_lock.h>
 #include <asm/uaccess.h>
 #include "ux_fs.h"
 
@@ -40,8 +41,8 @@ ux_find_entry(struct inode *dip, char *name)
                         }
                         dirent++;
                 }
+        	brelse(bh);
         }
-        brelse(bh);
         return 0;
 }
 
@@ -87,15 +88,16 @@ ux_read_inode(struct inode *inode)
                 inode->i_fop = &ux_file_operations;
                 inode->i_mapping->a_ops = &ux_aops;
         }
-        inode->i_uid = di->i_uid;
-        inode->i_gid = di->i_gid;
-        inode->i_nlink = di->i_nlink;
+	i_uid_write(inode, di->i_uid);
+	i_gid_write(inode, di->i_gid);
+	set_nlink(inode, di->i_nlink);
         inode->i_size = di->i_size;
         inode->i_blocks = di->i_blocks;
-        inode->i_blksize = UX_BSIZE;
-        inode->i_atime = di->i_atime;
-        inode->i_mtime = di->i_mtime;
-        inode->i_ctime = di->i_ctime;
+        inode->i_blkbits = UX_BSIZE_BITS;
+        inode->i_atime.tv_sec = di->i_atime;
+        inode->i_mtime.tv_sec = di->i_mtime;
+        inode->i_ctime.tv_sec = di->i_ctime;
+	inode->i_atime.tv_nsec = inode->i_mtime.tv_nsec = inode->i_ctime.tv_nsec = 0;
         memcpy(&inode->i_private, di, sizeof(struct ux_inode));
         brelse(bh);
 }
@@ -104,8 +106,8 @@ ux_read_inode(struct inode *inode)
  * This function is called to write a dirty inode to disk.
  */
 
-void
-ux_write_inode(struct inode *inode, int unused)
+int
+ux_write_inode(struct inode *inode, struct writeback_control *wbc)
 {
         unsigned long       ino = inode->i_ino;
         struct ux_inode     *uip = (struct ux_inode *)
@@ -115,21 +117,22 @@ ux_write_inode(struct inode *inode, int unused)
 
         if (ino < UX_ROOT_INO || ino > UX_MAXFILES) {
                 printk("uxfs: Bad inode number %lu\n", ino);
-                return;
+                return -EIO;
         }
         blk = UX_INODE_BLOCK + ino;
         bh = sb_bread(inode->i_sb, blk);
         uip->i_mode = inode->i_mode;
         uip->i_nlink = inode->i_nlink;
-        uip->i_atime = inode->i_atime;
-        uip->i_mtime = inode->i_mtime;
-        uip->i_ctime = inode->i_ctime;
-        uip->i_uid = inode->i_uid;
-        uip->i_gid = inode->i_gid;
+        uip->i_atime = inode->i_atime.tv_sec;
+        uip->i_mtime = inode->i_mtime.tv_sec;
+        uip->i_ctime = inode->i_ctime.tv_sec;
+        uip->i_uid = __kuid_val(inode->i_uid);
+        uip->i_gid = __kgid_val(inode->i_gid);
         uip->i_size = inode->i_size;
         memcpy(bh->b_data, uip, sizeof(struct ux_inode));
         mark_buffer_dirty(bh);
         brelse(bh);
+	return 0;
 }
 
 /*
@@ -144,7 +147,7 @@ ux_delete_inode(struct inode *inode)
                                       &inode->i_private;
         struct super_block    *sb = inode->i_sb;
         struct ux_fs          *fs = (struct ux_fs *)
-                                     sb->s_private;
+                                     sb->s_fs_info;
         struct ux_superblock  *usb = fs->u_sb;
         int                   i;
 
@@ -155,7 +158,7 @@ ux_delete_inode(struct inode *inode)
         }
         usb->s_inode[inum] = UX_INODE_FREE;
         usb->s_nifree++;
-        sb->s_dirt = 1;
+        //TODO sb->s_dirt = 1;
         clear_inode(inode);
 }
 
@@ -168,7 +171,7 @@ ux_delete_inode(struct inode *inode)
 void
 ux_put_super(struct super_block *s)
 {
-        struct ux_fs        *fs = (struct ux_fs *)s->s_private;
+        struct ux_fs        *fs = (struct ux_fs *)s->s_fs_info;
         struct buffer_head   *bh = fs->u_sbh;
 
         /*
@@ -184,10 +187,12 @@ ux_put_super(struct super_block *s)
  */
 
 int
-ux_statfs(struct super_block *sb, struct statfs *buf)
+ux_statfs(struct dentry *dentry, struct kstatfs *buf)
 {
-        struct ux_fs         *fs =  (struct ux_fs *)sb->s_private;
+	struct super_block   *sb = dentry->d_sb;
+	struct ux_fs         *fs = (struct ux_fs *)sb->s_fs_info;
         struct ux_superblock *usb = fs->u_sb;
+	u64 id = huge_encode_dev(sb->s_bdev->bd_dev);
 
         buf->f_type = UX_MAGIC;
         buf->f_bsize = UX_BSIZE;
@@ -196,7 +201,8 @@ ux_statfs(struct super_block *sb, struct statfs *buf)
         buf->f_bavail = usb->s_nbfree;
         buf->f_files = UX_MAXFILES;
         buf->f_ffree = usb->s_nifree;
-        buf->f_fsid.val[0] = kdev_t_to_nr(sb->s_dev);
+        buf->f_fsid.val[0] = (u32)id;
+        buf->f_fsid.val[1] = (u32)(id >> 32);
         buf->f_namelen = UX_NAMELEN;
         return 0;
 }
@@ -211,35 +217,33 @@ void
 ux_write_super(struct super_block *sb)
 {
         struct ux_fs       *fs = (struct ux_fs *)
-                                  sb->s_private;
+                                  sb->s_fs_info;
         struct buffer_head *bh = fs->u_sbh;
 
         if (!(sb->s_flags & MS_RDONLY)) {
                 mark_buffer_dirty(bh);
         }
-        sb->s_dirt = 0;
+        //TODO sb->s_dirt = 0;
 }
 
 struct super_operations uxfs_sops = {
-        read_inode:        ux_read_inode,
+        //read_inode:        ux_read_inode,
         write_inode:        ux_write_inode,
-        delete_inode:        ux_delete_inode,
+        evict_inode:        ux_delete_inode,
         put_super:        ux_put_super,
-        write_super:        ux_write_super,
+        //write_super:        ux_write_super,
         statfs:                ux_statfs,
 };
 
-struct super_block *
+static int
 ux_read_super(struct super_block *s, void *data, int silent)
 {
         struct ux_superblock      *usb;
         struct ux_fs              *fs;
         struct buffer_head        *bh;
         struct inode              *inode;
-        kdev_t                    dev;
 
-        dev = s->s_dev;
-        set_blocksize(dev, UX_BSIZE);
+        sb_set_blocksize(s, UX_BSIZE);
         s->s_blocksize = UX_BSIZE;
         s->s_blocksize_bits = UX_BSIZE_BITS;
 
@@ -268,16 +272,16 @@ ux_read_super(struct super_block *s, void *data, int silent)
                                      GFP_KERNEL);
         fs->u_sb = usb;
         fs->u_sbh = bh;
-        s->s_private = fs;
+        s->s_fs_info = fs;
 
         s->s_magic = UX_MAGIC;
         s->s_op = &uxfs_sops;
 
-        inode = iget(s, UX_ROOT_INO);
+        inode = iget_locked(s, UX_ROOT_INO);
         if (!inode) {
                 goto out;
         }
-        s->s_root = d_alloc_root(inode);
+        s->s_root = d_make_root(inode);
         if (!s->s_root) {
                 iput(inode);
                 goto out;
@@ -285,15 +289,27 @@ ux_read_super(struct super_block *s, void *data, int silent)
 
         if (!(s->s_flags & MS_RDONLY)) {
                 mark_buffer_dirty(bh);
-                s->s_dirt = 1;
+                //TODO s->s_dirt = 1;
         } 
-        return s;
+        return 0;
 
 out:
-        return NULL;
+        return -EINVAL;
 }
 
-static DECLARE_FSTYPE_DEV(uxfs_fs_type, "uxfs", ux_read_super);
+static struct dentry *ux_mount(struct file_system_type *fs_type,
+	int flags, const char *dev_name, void *data)
+{
+	return mount_bdev(fs_type, flags, dev_name, data, ux_read_super);
+}
+
+static struct file_system_type uxfs_fs_type = {
+	.owner		= THIS_MODULE,
+	.name		= "uxfs",
+	.mount		= ux_mount,
+	.kill_sb	= kill_block_super,
+	.fs_flags	= FS_REQUIRES_DEV,
+};
 
 static int __init init_uxfs_fs(void)
 {
@@ -307,4 +323,3 @@ static void __exit exit_uxfs_fs(void)
 
 module_init(init_uxfs_fs)
 module_exit(exit_uxfs_fs)
-
