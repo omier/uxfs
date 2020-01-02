@@ -220,7 +220,7 @@ ux_write_super(struct super_block *sb)
                                   sb->s_fs_info;
         struct buffer_head *bh = fs->u_sbh;
 
-        if (!(sb->s_flags & MS_RDONLY)) {
+        if (!(sb->s_flags & SB_RDONLY)) {
                 mark_buffer_dirty(bh);
         }
         //TODO sb->s_dirt = 0;
@@ -287,7 +287,7 @@ ux_read_super(struct super_block *s, void *data, int silent)
                 goto out;
         }
 
-        if (!(s->s_flags & MS_RDONLY)) {
+        if (!(s->s_flags & SB_RDONLY)) {
                 mark_buffer_dirty(bh);
                 //TODO s->s_dirt = 1;
         } 
