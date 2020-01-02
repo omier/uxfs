@@ -9,6 +9,7 @@
 #include <fcntl.h>
 #include <time.h>
 #include <linux/fs.h>
+#include <stdlib.h>
 #include "../kern/ux_fs.h"
 
 struct ux_superblock       sb;
@@ -80,6 +81,7 @@ int read_inode(ino_t inum, struct ux_inode *uip)
         return 0;
 }
 
+int
 main(int argc, char **argv)
 {
         struct ux_inode           inode;

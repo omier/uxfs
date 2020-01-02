@@ -9,8 +9,11 @@
 #include <time.h>
 #include <linux/fs.h>
 #include <sys/stat.h>
+#include <string.h>
+#include <stdlib.h>
 #include "../kern/ux_fs.h"
 
+int
 main(int argc, char **argv)
 {
         struct ux_dirent        dir;
