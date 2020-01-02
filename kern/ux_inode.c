@@ -277,10 +277,13 @@ ux_read_super(struct super_block *s, void *data, int silent)
         s->s_magic = UX_MAGIC;
         s->s_op = &uxfs_sops;
 
-        inode = iget_locked(s, UX_ROOT_INO);
+        inode = new_inode(s);
         if (!inode) {
                 goto out;
         }
+	inode->i_ino = UX_ROOT_INO;
+	ux_read_inode(inode);
+
         s->s_root = d_make_root(inode);
         if (!s->s_root) {
                 iput(inode);
