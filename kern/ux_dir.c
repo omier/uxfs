@@ -7,6 +7,7 @@
 #include <linux/buffer_head.h>
 #include <linux/sched.h>
 #include <linux/string.h>
+#include <linux/slab.h>
 
 #include "ux_fs.h"
 
@@ -204,6 +205,7 @@ ux_create(struct inode *dip, struct dentry *dentry, umode_t mode, bool excl)
         set_nlink(inode, 1);
         inode->i_ino = inum;
         insert_inode_hash(inode); 
+	inode->i_private = kmalloc(sizeof(struct ux_inode), GFP_KERNEL);
 
         nip = (struct ux_inode *)inode->i_private;
         nip->i_mode = mode;
@@ -271,6 +273,7 @@ ux_mkdir(struct inode *dip, struct dentry *dentry, umode_t mode)
         inode->i_ino = inum;
         inode->i_size = UX_BSIZE;
         set_nlink(inode, 2);
+	inode->i_private = kmalloc(sizeof(struct ux_inode), GFP_KERNEL);
 
         nip = (struct ux_inode *)inode->i_private;
         nip->i_mode = mode | S_IFDIR;
