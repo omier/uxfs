@@ -51,17 +51,17 @@ ux_find_entry(struct inode *dip, char *name)
  * example, we call iget() from ux_lookup().
  */
 
-void
-ux_read_inode(struct inode *inode)
+struct inode*
+ux_iget(struct super_block *sb, unsigned long ino)
 {
         struct buffer_head        *bh;
         struct ux_inode           *di;
-        unsigned long             ino = inode->i_ino;
+        struct inode              *inode;
         int                       block;
 
         if (ino < UX_ROOT_INO || ino > UX_MAXFILES) {
                 printk("uxfs: Bad inode number %lu\n", ino);
-                return;
+ 		return ERR_PTR(-ENOENT);
         }
 
         /*
@@ -70,11 +70,17 @@ ux_read_inode(struct inode *inode)
          */
 
         block = UX_INODE_BLOCK + ino;
-        bh = sb_bread(inode->i_sb, block);
+        bh = sb_bread(sb, block);
         if (!bh) {
                 printk("Unable to read inode %lu\n", ino);
-                return;
+ 		return ERR_PTR(-EIO);
         }
+
+	inode = iget_locked(sb, ino);
+	if (!inode)
+ 		return ERR_PTR(-ENOMEM);
+	if (!(inode->i_state & I_NEW))
+		return inode;
 
         di = (struct ux_inode *)(bh->b_data);
         inode->i_mode = di->i_mode;
@@ -101,6 +107,9 @@ ux_read_inode(struct inode *inode)
 	inode->i_private = kmalloc(sizeof(struct ux_inode), GFP_KERNEL);
         memcpy(inode->i_private, di, sizeof(struct ux_inode));
         brelse(bh);
+
+	unlock_new_inode(inode);
+	return inode;
 }
 
 /*
@@ -230,7 +239,6 @@ ux_write_super(struct super_block *sb)
 }
 
 struct super_operations uxfs_sops = {
-        //read_inode:        ux_read_inode,
         write_inode:        ux_write_inode,
         evict_inode:        ux_evict_inode,
         put_super:        ux_put_super,
@@ -280,12 +288,10 @@ ux_read_super(struct super_block *s, void *data, int silent)
         s->s_magic = UX_MAGIC;
         s->s_op = &uxfs_sops;
 
-        inode = new_inode(s);
-        if (!inode) {
+        inode = ux_iget(s, UX_ROOT_INO);
+        if (IS_ERR(inode)) {
                 goto out;
         }
-	inode->i_ino = UX_ROOT_INO;
-	ux_read_inode(inode);
 
         s->s_root = d_make_root(inode);
         if (!s->s_root) {

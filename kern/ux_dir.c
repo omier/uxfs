@@ -378,9 +378,9 @@ ux_lookup(struct inode *dip, struct dentry *dentry, unsigned int flags)
 
         inum = ux_find_entry(dip, (char *)dentry->d_name.name);
         if (inum) {
-                inode = iget_locked(dip->i_sb, inum);
-                if (!inode) {
-                        return ERR_PTR(-EACCES);
+                inode = ux_iget(dip->i_sb, inum);
+                if (IS_ERR(inode)) {
+                        return ERR_PTR(PTR_ERR(inode));
                 }
         }
         d_add(dentry, inode);
