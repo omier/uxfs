@@ -171,6 +171,9 @@ ux_evict_inode(struct inode *inode)
         //TODO sb->s_dirt = 1;
 	kfree(inode->i_private);
 	inode->i_private = NULL;
+
+        truncate_inode_pages_final(&inode->i_data);
+        invalidate_inode_buffers(inode);
         clear_inode(inode);
 }
 
