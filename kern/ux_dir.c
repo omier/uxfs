@@ -18,7 +18,7 @@ int
 ux_diradd(struct inode *dip, const char *name, int inum)
 {
         struct ux_inode       *uip = (struct ux_inode *)
-                                      &dip->i_private;
+                                      dip->i_private;
         struct buffer_head    *bh;
         struct super_block    *sb = dip->i_sb;
         struct ux_dirent      *dirent;
@@ -78,7 +78,7 @@ int
 ux_dirdel(struct inode *dip, char *name)
 {
         struct ux_inode         *uip = (struct ux_inode *)
-                                        &dip->i_private;
+                                        dip->i_private;
         struct buffer_head      *bh;
         struct super_block      *sb = dip->i_sb;
         struct ux_dirent        *dirent;
@@ -113,7 +113,7 @@ ux_readdir(struct file *filp, struct dir_context *ctx)
         unsigned long         pos;
         struct inode          *inode = filp->f_inode;
         struct ux_inode       *uip = (struct ux_inode *)
-                                      &inode->i_private;
+                                      inode->i_private;
         struct ux_dirent      *udir;
         struct buffer_head    *bh;
         __u32                 blk;
@@ -205,7 +205,7 @@ ux_create(struct inode *dip, struct dentry *dentry, umode_t mode, bool excl)
         inode->i_ino = inum;
         insert_inode_hash(inode); 
 
-        nip = (struct ux_inode *)&inode->i_private;
+        nip = (struct ux_inode *)inode->i_private;
         nip->i_mode = mode;
         nip->i_nlink = 1;
         nip->i_atime = nip->i_ctime = nip->i_mtime = inode->i_atime.tv_sec;
@@ -272,7 +272,7 @@ ux_mkdir(struct inode *dip, struct dentry *dentry, umode_t mode)
         inode->i_size = UX_BSIZE;
         set_nlink(inode, 2);
 
-        nip = (struct ux_inode *)&inode->i_private;
+        nip = (struct ux_inode *)inode->i_private;
         nip->i_mode = mode | S_IFDIR;
         nip->i_nlink = 2;
         nip->i_atime = nip->i_ctime 
@@ -323,7 +323,7 @@ ux_rmdir(struct inode *dip, struct dentry *dentry)
         struct ux_superblock    *usb = fs->u_sb;
         struct inode            *inode = dentry->d_inode;
         struct ux_inode         *uip = (struct ux_inode *)
-                                        &inode->i_private;
+                                        inode->i_private;
         int                     inum, i;
 
         if (inode->i_nlink > 2) {

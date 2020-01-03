@@ -25,7 +25,7 @@ int
 ux_find_entry(struct inode *dip, char *name)
 {
         struct ux_inode    *uip = (struct ux_inode *)
-                                   &dip->i_private;
+                                   dip->i_private;
         struct super_block *sb = dip->i_sb;
         struct buffer_head *bh;
         struct ux_dirent   *dirent;
@@ -98,7 +98,8 @@ ux_read_inode(struct inode *inode)
         inode->i_mtime.tv_sec = di->i_mtime;
         inode->i_ctime.tv_sec = di->i_ctime;
 	inode->i_atime.tv_nsec = inode->i_mtime.tv_nsec = inode->i_ctime.tv_nsec = 0;
-        memcpy(&inode->i_private, di, sizeof(struct ux_inode));
+	inode->i_private = kmalloc(sizeof(struct ux_inode), GFP_KERNEL);
+        memcpy(inode->i_private, di, sizeof(struct ux_inode));
         brelse(bh);
 }
 
@@ -111,7 +112,7 @@ ux_write_inode(struct inode *inode, struct writeback_control *wbc)
 {
         unsigned long       ino = inode->i_ino;
         struct ux_inode     *uip = (struct ux_inode *)
-                                    &inode->i_private;
+                                    inode->i_private;
         struct buffer_head  *bh;
         __u32               blk;
 
@@ -140,11 +141,11 @@ ux_write_inode(struct inode *inode, struct writeback_control *wbc)
  */
 
 void
-ux_delete_inode(struct inode *inode)
+ux_evict_inode(struct inode *inode)
 {
         unsigned long         inum = inode->i_ino;
         struct ux_inode       *uip = (struct ux_inode *)
-                                      &inode->i_private;
+                                      inode->i_private;
         struct super_block    *sb = inode->i_sb;
         struct ux_fs          *fs = (struct ux_fs *)
                                      sb->s_fs_info;
@@ -159,6 +160,8 @@ ux_delete_inode(struct inode *inode)
         usb->s_inode[inum] = UX_INODE_FREE;
         usb->s_nifree++;
         //TODO sb->s_dirt = 1;
+	kfree(inode->i_private);
+	inode->i_private = NULL;
         clear_inode(inode);
 }
 
@@ -229,7 +232,7 @@ ux_write_super(struct super_block *sb)
 struct super_operations uxfs_sops = {
         //read_inode:        ux_read_inode,
         write_inode:        ux_write_inode,
-        evict_inode:        ux_delete_inode,
+        evict_inode:        ux_evict_inode,
         put_super:        ux_put_super,
         //write_super:        ux_write_super,
         statfs:                ux_statfs,
