@@ -184,9 +184,9 @@ ux_evict_inode(struct inode *inode)
  */
 
 void
-ux_put_super(struct super_block *s)
+ux_put_super(struct super_block *sb)
 {
-        struct ux_fs        *fs = (struct ux_fs *)s->s_fs_info;
+        struct ux_fs        *fs = (struct ux_fs *)sb->s_fs_info;
         struct buffer_head   *bh = fs->u_sbh;
 
         /*
@@ -250,18 +250,18 @@ struct super_operations uxfs_sops = {
 };
 
 static int
-ux_read_super(struct super_block *s, void *data, int silent)
+ux_read_super(struct super_block *sb, void *data, int silent)
 {
         struct ux_superblock      *usb;
         struct ux_fs              *fs;
         struct buffer_head        *bh;
         struct inode              *inode;
 
-        sb_set_blocksize(s, UX_BSIZE);
-        s->s_blocksize = UX_BSIZE;
-        s->s_blocksize_bits = UX_BSIZE_BITS;
+        sb_set_blocksize(sb, UX_BSIZE);
+        sb->s_blocksize = UX_BSIZE;
+        sb->s_blocksize_bits = UX_BSIZE_BITS;
 
-        bh = sb_bread(s, 0);
+        bh = sb_bread(sb, 0);
         if(!bh) {
                 goto out;
         }
@@ -286,25 +286,25 @@ ux_read_super(struct super_block *s, void *data, int silent)
                                      GFP_KERNEL);
         fs->u_sb = usb;
         fs->u_sbh = bh;
-        s->s_fs_info = fs;
+        sb->s_fs_info = fs;
 
-        s->s_magic = UX_MAGIC;
-        s->s_op = &uxfs_sops;
+        sb->s_magic = UX_MAGIC;
+        sb->s_op = &uxfs_sops;
 
-        inode = ux_iget(s, UX_ROOT_INO);
+        inode = ux_iget(sb, UX_ROOT_INO);
         if (IS_ERR(inode)) {
                 goto out;
         }
 
-        s->s_root = d_make_root(inode);
-        if (!s->s_root) {
+        sb->s_root = d_make_root(inode);
+        if (!sb->s_root) {
                 iput(inode);
                 goto out;
         }
 
-        if (!(s->s_flags & SB_RDONLY)) {
+        if (!(sb->s_flags & SB_RDONLY)) {
                 mark_buffer_dirty(bh);
-                //TODO s->s_dirt = 1;
+                //TODO sb->s_dirt = 1;
         } 
         return 0;
 
