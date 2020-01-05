@@ -146,7 +146,7 @@ start_again:
         return 0;        
 }
 
-struct file_operations ux_dir_operations = {
+const struct file_operations ux_dir_operations = {
         read:                generic_read_dir,
         iterate_shared:      ux_readdir,
         fsync:               generic_file_fsync,
@@ -432,7 +432,7 @@ ux_unlink(struct inode *dip, struct dentry *dentry)
         return 0;
 }
 
-struct inode_operations ux_dir_inops = {
+const struct inode_operations ux_dir_inops = {
         create:              ux_create,
         lookup:              ux_lookup,
         mkdir:               ux_mkdir,

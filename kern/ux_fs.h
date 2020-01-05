@@ -2,11 +2,11 @@
 /*---------------------------- ux_fs.h -------------------------*/
 /*--------------------------------------------------------------*/
 
-extern struct address_space_operations ux_aops;
-extern struct inode_operations ux_file_inops;
-extern struct inode_operations ux_dir_inops;
-extern struct file_operations ux_dir_operations;
-extern struct file_operations ux_file_operations;
+extern const struct address_space_operations ux_aops;
+extern const struct inode_operations ux_file_inops;
+extern const struct inode_operations ux_dir_inops;
+extern const struct file_operations ux_dir_operations;
+extern const struct file_operations ux_file_operations;
 
 
 #define UX_NAMELEN              28        
