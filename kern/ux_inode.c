@@ -12,10 +12,6 @@
 #include <linux/uaccess.h>
 #include "ux_fs.h"
 
-MODULE_AUTHOR("Steve Pate <spate@veritas.com>");
-MODULE_DESCRIPTION("A primitive filesystem for Linux");
-MODULE_LICENSE("GPL");
-
 /*
  * This function looks for "name" in the directory "dip".
  * If found the inode number is returned.
@@ -319,6 +315,10 @@ static void __exit exit_uxfs_fs(void)
 {
 	unregister_filesystem(&uxfs_fs_type);
 }
+
+MODULE_LICENSE("GPL");
+MODULE_DESCRIPTION("A primitive filesystem for Linux");
+MODULE_AUTHOR("Steve Pate <spate@veritas.com>");
 
 module_init(init_uxfs_fs)
 module_exit(exit_uxfs_fs)
