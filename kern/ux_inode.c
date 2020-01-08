@@ -226,7 +226,7 @@ void ux_write_super(struct super_block *sb)
 	//TODO sb->s_dirt = 0;
 }
 
-struct super_operations uxfs_sops = {
+static const struct super_operations ux_sops = {
 	.write_inode	= ux_write_inode,
 	.evict_inode	= ux_evict_inode,
 	.put_super	= ux_put_super,
@@ -272,7 +272,7 @@ static int ux_read_super(struct super_block *sb, void *data, int silent)
 	sb->s_fs_info = fs;
 
 	sb->s_magic = UX_MAGIC;
-	sb->s_op = &uxfs_sops;
+	sb->s_op = &ux_sops;
 
 	inode = ux_iget(sb, UX_ROOT_INO);
 	if (IS_ERR(inode))
@@ -300,7 +300,7 @@ static struct dentry *ux_mount(struct file_system_type *fs_type, int flags,
 	return mount_bdev(fs_type, flags, dev_name, data, ux_read_super);
 }
 
-static struct file_system_type uxfs_fs_type = {
+static struct file_system_type ux_fs_type = {
 	.owner		= THIS_MODULE,
 	.name		= "uxfs",
 	.mount		= ux_mount,
@@ -308,19 +308,19 @@ static struct file_system_type uxfs_fs_type = {
 	.fs_flags	= FS_REQUIRES_DEV,
 };
 
-static int __init init_uxfs_fs(void)
+static int __init init_uxfs(void)
 {
-	return register_filesystem(&uxfs_fs_type);
+	return register_filesystem(&ux_fs_type);
 }
 
-static void __exit exit_uxfs_fs(void)
+static void __exit exit_uxfs(void)
 {
-	unregister_filesystem(&uxfs_fs_type);
+	unregister_filesystem(&ux_fs_type);
 }
 
 MODULE_LICENSE("GPL");
 MODULE_DESCRIPTION("A primitive filesystem for Linux");
 MODULE_AUTHOR("Steve Pate <spate@veritas.com>");
 
-module_init(init_uxfs_fs)
-module_exit(exit_uxfs_fs)
+module_init(init_uxfs)
+module_exit(exit_uxfs)
