@@ -235,10 +235,11 @@ static const struct super_operations ux_sops = {
 
 static int ux_read_super(struct super_block *sb, void *data, int silent)
 {
-	struct ux_superblock *usb;
-	struct ux_fs *fs;
-	struct buffer_head *bh;
-	struct inode *inode;
+	struct buffer_head *bh = NULL;
+	struct ux_superblock *usb = NULL;
+	struct ux_fs *fs = NULL;
+	struct inode *inode = NULL;
+	int ret = -EINVAL;
 
 	if (!sb_set_blocksize(sb, UX_BSIZE)) {
 		if (!silent)
@@ -267,6 +268,10 @@ static int ux_read_super(struct super_block *sb, void *data, int silent)
 	 */
 
 	fs = kmalloc(sizeof(struct ux_fs), GFP_KERNEL);
+	if (!fs) {
+		ret = -ENOMEM;
+		goto out;
+	}
 	fs->u_sb = usb;
 	fs->u_sbh = bh;
 	sb->s_fs_info = fs;
@@ -275,12 +280,15 @@ static int ux_read_super(struct super_block *sb, void *data, int silent)
 	sb->s_op = &ux_sops;
 
 	inode = ux_iget(sb, UX_ROOT_INO);
-	if (IS_ERR(inode))
+	if (IS_ERR(inode)) {
+		ret = PTR_ERR(inode);
 		goto out;
+	}
 
 	sb->s_root = d_make_root(inode);
 	if (!sb->s_root) {
-		iput(inode);
+		/* Nothing needed for the inode cleanup */
+		ret = -ENOMEM;
 		goto out;
 	}
 
@@ -291,7 +299,10 @@ static int ux_read_super(struct super_block *sb, void *data, int silent)
 	return 0;
 
 out:
-	return -EINVAL;
+	kfree(fs);
+	brelse(bh);
+
+	return ret;
 }
 
 static struct dentry *ux_mount(struct file_system_type *fs_type, int flags,
