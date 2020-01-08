@@ -32,7 +32,7 @@ int ux_get_block(struct inode *inode, sector_t block,
 	 */
 
 	if (create) {
-		blk = ux_block_alloc(sb);
+		blk = ux_data_alloc(sb);
 		if (blk == 0) {
 			pr_err("uxfs: %s - Out of space\n", __func__);
 			return -ENOSPC;

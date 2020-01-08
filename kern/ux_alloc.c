@@ -14,7 +14,7 @@
  * the inode number.
  */
 
-ino_t ux_ialloc(struct super_block *sb)
+ino_t ux_inode_alloc(struct super_block *sb)
 {
 	struct ux_fs *fs = (struct ux_fs *)sb->s_fs_info;
 	struct ux_superblock *usb = fs->u_sb;
@@ -43,7 +43,7 @@ ino_t ux_ialloc(struct super_block *sb)
  * the new block number.
  */
 
-__u32 ux_block_alloc(struct super_block *sb)
+__u32 ux_data_alloc(struct super_block *sb)
 {
 	struct ux_fs *fs = (struct ux_fs *)sb->s_fs_info;
 	struct ux_superblock *usb = fs->u_sb;

@@ -50,7 +50,7 @@ int ux_diradd(struct inode *dip, const char *name, int inum)
 
 	if (uip->i_blocks < UX_DIRECT_BLOCKS) {
 		pos = uip->i_blocks;
-		blk = ux_block_alloc(sb);
+		blk = ux_data_alloc(sb);
 		uip->i_blocks++;
 		uip->i_size += UX_BSIZE;
 		dip->i_size += UX_BSIZE;
@@ -172,7 +172,7 @@ int ux_create(struct inode *dip, struct dentry *dentry, umode_t mode, bool excl)
 	if (!inode)
 		return -ENOSPC;
 
-	inum = ux_ialloc(sb);
+	inum = ux_inode_alloc(sb);
 	if (!inum) {
 		iput(inode);
 		return -ENOSPC;
@@ -243,7 +243,7 @@ int ux_mkdir(struct inode *dip, struct dentry *dentry, umode_t mode)
 	if (!inode)
 		return -ENOSPC;
 
-	inum = ux_ialloc(sb);
+	inum = ux_inode_alloc(sb);
 	if (!inum) {
 		iput(inode);
 		return -ENOSPC;
@@ -278,7 +278,7 @@ int ux_mkdir(struct inode *dip, struct dentry *dentry, umode_t mode)
 	nip->i_blocks = 1;
 	memset(nip->i_addr, 0, UX_DIRECT_BLOCKS * sizeof(nip->i_addr[0]));
 
-	blk = ux_block_alloc(sb);
+	blk = ux_data_alloc(sb);
 	nip->i_addr[0] = blk;
 	bh = sb_bread(sb, blk);
 	memset(bh->b_data, 0, UX_BSIZE);
