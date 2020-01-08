@@ -240,9 +240,11 @@ static int ux_read_super(struct super_block *sb, void *data, int silent)
 	struct buffer_head *bh;
 	struct inode *inode;
 
-	sb_set_blocksize(sb, UX_BSIZE);
-	sb->s_blocksize = UX_BSIZE;
-	sb->s_blocksize_bits = UX_BSIZE_BITS;
+	if (!sb_set_blocksize(sb, UX_BSIZE)) {
+		if (!silent)
+			pr_err("Unable to set blocksize %u\n", UX_BSIZE);
+		goto out;
+	}
 
 	bh = sb_bread(sb, 0);
 	if (!bh)
