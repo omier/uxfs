@@ -158,7 +158,7 @@ void ux_evict_inode(struct inode *inode)
 	}
 	usb->s_inode[inum] = UX_INODE_FREE;
 	usb->s_nifree++;
-	//TODO sb->s_dirt = 1;
+	ux_write_super(sb);
 	kfree(inode->i_private);
 	inode->i_private = NULL;
 
@@ -223,7 +223,6 @@ void ux_write_super(struct super_block *sb)
 
 	if (!(sb->s_flags & SB_RDONLY))
 		mark_buffer_dirty(bh);
-	//TODO sb->s_dirt = 0;
 }
 
 static const struct super_operations ux_sops = {
@@ -292,9 +291,7 @@ static int ux_read_super(struct super_block *sb, void *data, int silent)
 		goto out;
 	}
 
-	if (!(sb->s_flags & SB_RDONLY))
-		mark_buffer_dirty(bh);
-		//TODO sb->s_dirt = 1;
+	ux_write_super(sb);
 
 	return 0;
 

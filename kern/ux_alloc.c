@@ -29,7 +29,7 @@ ino_t ux_ialloc(struct super_block *sb)
 		if (usb->s_inode[i] == UX_INODE_FREE) {
 			usb->s_inode[i] = UX_INODE_INUSE;
 			usb->s_nifree--;
-			//TODO sb->s_dirt = 1;
+			ux_write_super(sb);
 			return i;
 		}
 	}
@@ -63,7 +63,7 @@ __u32 ux_block_alloc(struct super_block *sb)
 		if (usb->s_block[i] == UX_BLOCK_FREE) {
 			usb->s_block[i] = UX_BLOCK_INUSE;
 			usb->s_nbfree--;
-			//TODO sb->s_dirt = 1;
+			ux_write_super(sb);
 			return UX_FIRST_DATA_BLOCK + i;
 		}
 	}

@@ -96,5 +96,6 @@ extern int ux_unlink(struct inode *, struct dentry *);
 extern int ux_link(struct dentry *, struct inode *, 
                    struct dentry *);
 extern struct inode* ux_iget(struct super_block*, unsigned long);
+extern void ux_write_super(struct super_block *sb);
 
 #endif
