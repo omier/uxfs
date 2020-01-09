@@ -80,27 +80,27 @@ int ux_dirdel(struct inode *dip, char *name)
 	struct super_block *sb = dip->i_sb;
 	struct ux_dirent *dirent;
 	__u32 blk = 0;
-	int i;
+	int i, ino;
 
 	while (blk < uip->i_blocks) {
 		bh = sb_bread(sb, uip->i_addr[blk]);
 		blk++;
 		dirent = (struct ux_dirent *)bh->b_data;
 		for (i = 0; i < UX_DIRS_PER_BLOCK; i++) {
-			if (strcmp(dirent->d_name, name) != 0) {
-				dirent++;
-				continue;
-			} else {
+			if (!strcmp(dirent->d_name, name)) {
+				ino = dirent->d_ino;
 				dirent->d_ino = 0;
 				dirent->d_name[0] = '\0';
 				mark_buffer_dirty(bh);
-				inode_dec_link_count(dip);
-				mark_inode_dirty(dip);
-				break;
+				brelse(bh);
+				return ino;
 			}
+
+			dirent++;
 		}
 		brelse(bh);
 	}
+
 	return 0;
 }
 
@@ -300,7 +300,6 @@ int ux_mkdir(struct inode *dip, struct dentry *dentry, umode_t mode)
 	 */
 
 	inode_inc_link_count(dip);
-	mark_inode_dirty(dip);
 	return 0;
 }
 
@@ -310,12 +309,8 @@ int ux_mkdir(struct inode *dip, struct dentry *dentry, umode_t mode)
 
 int ux_rmdir(struct inode *dip, struct dentry *dentry)
 {
-	struct super_block *sb = dip->i_sb;
-	struct ux_fs *fs = (struct ux_fs *)sb->s_fs_info;
-	struct ux_superblock *usb = fs->u_sb;
 	struct inode *inode = dentry->d_inode;
-	struct ux_inode *uip = (struct ux_inode *)inode->i_private;
-	int inum, i;
+	int inum;
 
 	if (inode->i_nlink > 2)
 		return -ENOTEMPTY;
@@ -324,29 +319,17 @@ int ux_rmdir(struct inode *dip, struct dentry *dentry)
 	 * Remove the entry from the parent directory
 	 */
 
-	inum = ux_find_entry(dip, (char *)dentry->d_name.name);
+	inum = ux_dirdel(dip, (char *)dentry->d_name.name);
 	if (!inum)
 		return -ENOTDIR;
-	ux_dirdel(dip, (char *)dentry->d_name.name);
+	inode_dec_link_count(dip);
 
 	/*
 	 * Clean up the inode
 	 */
 
-	for (i = 0; i < UX_DIRECT_BLOCKS; i++) {
-		if (uip->i_addr[i] != 0) {
-			usb->s_block[uip->i_addr[i]]
-				     = UX_BLOCK_FREE;
-			usb->s_nbfree++;
-		}
-	}
+	clear_nlink(inode);
 
-	/*
-	 * Update the superblock summaries.
-	 */
-
-	usb->s_inode[dip->i_ino] = UX_INODE_FREE;
-	usb->s_nifree++;
 	return 0;
 }
 
@@ -411,7 +394,6 @@ int ux_unlink(struct inode *dip, struct dentry *dentry)
 
 	ux_dirdel(dip, (char *)dentry->d_name.name);
 	inode_dec_link_count(inode);
-	mark_inode_dirty(inode);
 	return 0;
 }
 
