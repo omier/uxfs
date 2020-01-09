@@ -151,14 +151,17 @@ void ux_evict_inode(struct inode *inode)
 	struct ux_superblock *usb = fs->u_sb;
 	int i;
 
-	usb->s_nbfree += uip->i_blocks;
-	for (i = 0; i < uip->i_blocks; i++) {
-		usb->s_block[uip->i_addr[i]] = UX_BLOCK_FREE;
-		uip->i_addr[i] = UX_BLOCK_FREE;
+	if (!inode->i_nlink) {
+		usb->s_nbfree += uip->i_blocks;
+		for (i = 0; i < uip->i_blocks; i++) {
+			usb->s_block[uip->i_addr[i]] = UX_BLOCK_FREE;
+			uip->i_addr[i] = UX_BLOCK_FREE;
+		}
+		usb->s_inode[inum] = UX_INODE_FREE;
+		usb->s_nifree++;
+		ux_write_super(sb);
 	}
-	usb->s_inode[inum] = UX_INODE_FREE;
-	usb->s_nifree++;
-	ux_write_super(sb);
+
 	kfree(inode->i_private);
 	inode->i_private = NULL;
 
