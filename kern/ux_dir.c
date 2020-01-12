@@ -179,11 +179,7 @@ int ux_create(struct inode *dip, struct dentry *dentry, umode_t mode, bool excl)
 	}
 	ux_diradd(dip, (char *)dentry->d_name.name, inum);
 
-	/*
-	 * Increment the parent link count and intialize the inode.
-	 */
-
-	inode_inc_link_count(inode);
+	set_nlink(inode, 1);
 	inode->i_uid = current_fsuid();
 	inode->i_gid = (dip->i_mode & S_ISGID) ?
 			dip->i_gid : current_fsgid();
@@ -193,14 +189,12 @@ int ux_create(struct inode *dip, struct dentry *dentry, umode_t mode, bool excl)
 	inode->i_op = &ux_file_inops;
 	inode->i_fop = &ux_file_operations;
 	inode->i_mapping->a_ops = &ux_aops;
-	inode->i_mode = mode;
-	set_nlink(inode, 1);
+	inode->i_mode = mode | S_IFREG;
 	inode->i_ino = inum;
-	insert_inode_hash(inode);
 	inode->i_private = kmalloc(sizeof(struct ux_inode), GFP_KERNEL);
 
 	nip = (struct ux_inode *)inode->i_private;
-	nip->i_mode = mode;
+	nip->i_mode = mode | S_IFREG;
 	nip->i_nlink = 1;
 	nip->i_atime = nip->i_ctime = nip->i_mtime = inode->i_atime.tv_sec;
 	nip->i_uid = __kuid_val(inode->i_uid);
@@ -209,9 +203,10 @@ int ux_create(struct inode *dip, struct dentry *dentry, umode_t mode, bool excl)
 	nip->i_blocks = 0;
 	memset(nip->i_addr, 0, UX_DIRECT_BLOCKS * sizeof(nip->i_addr[0]));
 
+	insert_inode_hash(inode);
 	d_instantiate(dentry, inode);
-	mark_inode_dirty(dip);
 	mark_inode_dirty(inode);
+
 	return 0;
 }
 
@@ -288,9 +283,9 @@ int ux_mkdir(struct inode *dip, struct dentry *dentry, umode_t mode)
 	dirent++;
 	dirent->d_ino = inode->i_ino;
 	strcpy(dirent->d_name, "..");
-
 	mark_buffer_dirty(bh);
 	brelse(bh);
+
 	insert_inode_hash(inode);
 	d_instantiate(dentry, inode);
 	mark_inode_dirty(inode);
