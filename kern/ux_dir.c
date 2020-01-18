@@ -180,12 +180,14 @@ int ux_create(struct inode *dip, struct dentry *dentry, umode_t mode, bool excl)
 	ux_diradd(dip, (char *)dentry->d_name.name, inum);
 
 	set_nlink(inode, 1);
+	inode->i_size = 0;
+	inode->i_blocks = 0;
+	inode->i_blkbits = UX_BSIZE_BITS;
 	inode->i_uid = current_fsuid();
 	inode->i_gid = (dip->i_mode & S_ISGID) ?
 			dip->i_gid : current_fsgid();
 	inode->i_mtime = inode->i_atime =
 			 inode->i_ctime = current_time(dip);
-	inode->i_blocks = inode->i_blkbits = 0;
 	inode->i_op = &ux_file_inops;
 	inode->i_fop = &ux_file_operations;
 	inode->i_mapping->a_ops = &ux_aops;
@@ -245,20 +247,20 @@ int ux_mkdir(struct inode *dip, struct dentry *dentry, umode_t mode)
 	}
 	ux_diradd(dip, (char *)dentry->d_name.name, inum);
 
+	set_nlink(inode, 2);
+	inode->i_size = UX_BSIZE;
+	inode->i_blocks = 1;
+	inode->i_blkbits = UX_BSIZE_BITS;
 	inode->i_uid = current_fsuid();
 	inode->i_gid = (dip->i_mode & S_ISGID) ?
 			dip->i_gid : current_fsgid();
 	inode->i_mtime = inode->i_atime =
 			inode->i_ctime = current_time(dip);
-	inode->i_blocks = 1;
-	inode->i_blkbits = UX_BSIZE_BITS;
 	inode->i_op = &ux_dir_inops;
 	inode->i_fop = &ux_dir_operations;
 	inode->i_mapping->a_ops = &ux_aops;
 	inode->i_mode = mode | S_IFDIR;
 	inode->i_ino = inum;
-	inode->i_size = UX_BSIZE;
-	set_nlink(inode, 2);
 	inode->i_private = kmalloc(sizeof(struct ux_inode), GFP_KERNEL);
 
 	nip = (struct ux_inode *)inode->i_private;
