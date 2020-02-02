@@ -25,6 +25,9 @@ int ux_find_entry(struct inode *dip, char *name)
 	struct ux_dirent *dirent;
 	int i, blk;
 
+	pr_debug("uxfs: start %s with dir=%lu name=%s\n",
+		__func__, dip->i_ino, name);
+
 	for (blk = 0; blk < uip->i_blocks; blk++) {
 		bh = sb_bread(sb, uip->i_addr[blk]);
 		dirent = (struct ux_dirent *)bh->b_data;
@@ -37,6 +40,7 @@ int ux_find_entry(struct inode *dip, char *name)
 		}
 		brelse(bh);
 	}
+
 	return 0;
 }
 
@@ -52,8 +56,10 @@ struct inode *ux_iget(struct super_block *sb, unsigned long ino)
 	struct inode *inode;
 	int block;
 
+	pr_debug("uxfs: start %s with inode=%lu\n", __func__, ino);
+
 	if (ino < UX_ROOT_INO || ino > UX_MAXFILES) {
-		pr_err("uxfs: Bad inode number %lu\n", ino);
+		pr_debug("uxfs: Bad inode number %lu\n", ino);
 		return ERR_PTR(-ENOENT);
 	}
 
@@ -65,7 +71,7 @@ struct inode *ux_iget(struct super_block *sb, unsigned long ino)
 	block = UX_INODE_BLOCK + ino;
 	bh = sb_bread(sb, block);
 	if (!bh) {
-		pr_err("Unable to read inode %lu\n", ino);
+		pr_debug("Unable to read inode %lu\n", ino);
 		return ERR_PTR(-EIO);
 	}
 
@@ -118,10 +124,13 @@ int ux_write_inode(struct inode *inode, struct writeback_control *wbc)
 	struct buffer_head  *bh;
 	__u32 blk;
 
+	pr_debug("uxfs: start %s with inode=%lu\n", __func__, ino);
+
 	if (ino < UX_ROOT_INO || ino > UX_MAXFILES) {
-		pr_err("uxfs: Bad inode number %lu\n", ino);
+		pr_debug("uxfs: %s bad inode number %lu\n", __func__, ino);
 		return -EIO;
 	}
+
 	blk = UX_INODE_BLOCK + ino;
 	bh = sb_bread(inode->i_sb, blk);
 	uip->i_mode = inode->i_mode;
@@ -132,6 +141,7 @@ int ux_write_inode(struct inode *inode, struct writeback_control *wbc)
 	uip->i_uid = __kuid_val(inode->i_uid);
 	uip->i_gid = __kgid_val(inode->i_gid);
 	uip->i_size = inode->i_size;
+	uip->i_blocks = inode->i_blocks;
 	memcpy(bh->b_data, uip, sizeof(struct ux_inode));
 	mark_buffer_dirty(bh);
 	brelse(bh);
@@ -150,6 +160,9 @@ void ux_evict_inode(struct inode *inode)
 	struct ux_fs *fs = (struct ux_fs *)sb->s_fs_info;
 	struct ux_superblock *usb = fs->u_sb;
 	int i;
+
+	pr_debug("uxfs: start %s with inode=%lu nlink=%u\n",
+		__func__, inum, inode->i_nlink);
 
 	if (!inode->i_nlink) {
 		usb->s_nbfree += uip->i_blocks;
@@ -181,6 +194,8 @@ void ux_put_super(struct super_block *sb)
 	struct ux_fs *fs = (struct ux_fs *)sb->s_fs_info;
 	struct buffer_head *bh = fs->u_sbh;
 
+	pr_debug("uxfs: start %s\n", __func__);
+
 	/*
 	 * Free the ux_fs structure allocated by ux_read_super
 	 */
@@ -199,6 +214,8 @@ int ux_statfs(struct dentry *dentry, struct kstatfs *buf)
 	struct ux_fs *fs = (struct ux_fs *)sb->s_fs_info;
 	struct ux_superblock *usb = fs->u_sb;
 	u64 id = huge_encode_dev(sb->s_bdev->bd_dev);
+
+	pr_debug("uxfs: start %s\n", __func__);
 
 	buf->f_type = UX_MAGIC;
 	buf->f_bsize = UX_BSIZE;
@@ -224,8 +241,12 @@ void ux_write_super(struct super_block *sb)
 	struct ux_fs *fs = (struct ux_fs *)sb->s_fs_info;
 	struct buffer_head *bh = fs->u_sbh;
 
+	pr_debug("uxfs: start %s\n", __func__);
+
 	if (!(sb->s_flags & SB_RDONLY))
 		mark_buffer_dirty(bh);
+
+	pr_debug("uxfs:  stop %s\n", __func__);
 }
 
 static const struct super_operations ux_sops = {
@@ -243,9 +264,12 @@ static int ux_read_super(struct super_block *sb, void *data, int silent)
 	struct inode *inode = NULL;
 	int ret = -EINVAL;
 
+	pr_debug("uxfs: start %s with silent=%d\n", __func__, silent);
+
 	if (!sb_set_blocksize(sb, UX_BSIZE)) {
 		if (!silent)
-			pr_err("Unable to set blocksize %u\n", UX_BSIZE);
+			pr_err("uxfs: %s unable to set blocksize %u\n",
+				__func__, UX_BSIZE);
 		goto out;
 	}
 
@@ -256,11 +280,13 @@ static int ux_read_super(struct super_block *sb, void *data, int silent)
 	usb = (struct ux_superblock *)bh->b_data;
 	if (usb->s_magic != UX_MAGIC) {
 		if (!silent)
-			pr_err("Unable to find uxfs filesystem\n");
+			pr_err("uxfs: %s unable to find filesystem\n",
+				__func__);
 		goto out;
 	}
 	if (usb->s_mod == UX_FSDIRTY) {
-		pr_err("Filesystem is not clean. Write and run fsck!\n");
+		pr_err("uxfs: %s Filesystem is not clean. Write and run fsck!\n",
+			__func__);
 		goto out;
 	}
 
@@ -296,18 +322,22 @@ static int ux_read_super(struct super_block *sb, void *data, int silent)
 
 	ux_write_super(sb);
 
+	pr_debug("uxfs:  stop %s\n", __func__);
 	return 0;
 
 out:
 	kfree(fs);
 	brelse(bh);
 
+	pr_debug("uxfs:  fail %s with %d\n", __func__, ret);
 	return ret;
 }
 
 static struct dentry *ux_mount(struct file_system_type *fs_type, int flags,
 				const char *dev_name, void *data)
 {
+	pr_debug("uxfs: start %s with dev=%s\n", __func__, dev_name);
+
 	return mount_bdev(fs_type, flags, dev_name, data, ux_read_super);
 }
 
@@ -321,11 +351,15 @@ static struct file_system_type ux_fs_type = {
 
 static int __init init_uxfs(void)
 {
+	pr_debug("uxfs: start %s\n", __func__);
+
 	return register_filesystem(&ux_fs_type);
 }
 
 static void __exit exit_uxfs(void)
 {
+	pr_debug("uxfs: start %s\n", __func__);
+
 	unregister_filesystem(&ux_fs_type);
 }
 
