@@ -17,14 +17,14 @@ int ux_get_block(struct inode *inode, sector_t block,
 		struct buffer_head *bh_result, int create)
 {
 	struct super_block *sb = inode->i_sb;
-	struct ux_inode *uip = (struct ux_inode *)&inode->i_private;
+	struct ux_inode *uip = (struct ux_inode *)inode->i_private;
 	__u32 blk;
 
 	pr_debug("uxfs: start %s with inode=%lu block=%lu create=%d\n",
 		__func__, inode->i_ino, (long unsigned int)block, create);
 
 	/*
-	 * First check to see is the file can be extended.
+	 * First check to see if the file can be extended.
 	 */
 
 	if (block >= UX_DIRECT_BLOCKS)
@@ -42,12 +42,15 @@ int ux_get_block(struct inode *inode, sector_t block,
 		}
 		uip->i_addr[block] = blk;
 		uip->i_blocks++;
+		inode->i_blocks++;
 		uip->i_size = inode->i_size;
 		mark_inode_dirty(inode);
 	}
-	bh_result->b_bdev = bdget(inode->i_rdev);
-	bh_result->b_blocknr = uip->i_addr[block];
-	bh_result->b_state |= (1UL << BH_Mapped);
+
+	map_bh(bh_result, sb, uip->i_addr[block]);
+	if (create)
+		set_buffer_new(bh_result);
+
 	return 0;
 }
 
