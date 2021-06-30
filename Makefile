@@ -30,4 +30,8 @@ mount: $(FSFILE)
 umount:
 	umount $(FSDIR)
 
+work: all load wipefs mount
+
+delete: umount unload clean
+
 .PHONY: all cmds kern clean load unload wipefs mount umount
