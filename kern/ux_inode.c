@@ -11,6 +11,8 @@
 #include <linux/init.h>
 #include <linux/uaccess.h>
 #include "ux_fs.h"
+#include "ux_xattr.h"
+#include <linux/posix_acl.h>
 
 /*
  * This function looks for "name" in the directory "dip".
@@ -306,6 +308,8 @@ static int ux_read_super(struct super_block *sb, void *data, int silent)
 
 	sb->s_magic = UX_MAGIC;
 	sb->s_op = &ux_sops;
+	sb->s_xattr = ux_xattr_handlers;
+	sb->s_flags = (sb->s_flags & ~SB_POSIXACL) | SB_POSIXACL;
 
 	inode = ux_iget(sb, UX_ROOT_INO);
 	if (IS_ERR(inode)) {

@@ -4,7 +4,10 @@
 
 #include <linux/fs.h>
 #include <linux/buffer_head.h>
+
 #include "ux_fs.h"
+#include "ux_xattr.h"
+// #include "ux_acl.h"
 
 const struct file_operations ux_file_operations = {
 	.llseek		= generic_file_llseek,
@@ -98,4 +101,7 @@ const struct address_space_operations ux_aops = {
 const struct inode_operations ux_file_inops = {
 	.link	= ux_link,
 	.unlink	= ux_unlink,
+	.listxattr	= ux_listxattr,
+	// .get_acl	= ux_get_acl,
+	// .set_acl	= ux_set_acl,
 };

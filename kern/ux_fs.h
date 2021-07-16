@@ -53,6 +53,30 @@ struct ux_inode {
 };
 
 /*
+ * file system inode data in memory.
+ */
+struct ux_inode_info {
+	__le32	i_data[15];
+	__u32	i_file_acl;
+	__u32	i_dir_acl;
+
+#ifdef __KERNEL__
+	/*
+	 * Extended attributes can be read independently of the main file
+	 * data. Taking i_mutex even when reading would cause contention
+	 * between readers of EAs and writers of regular file data, so
+	 * instead we synchronize on xattr_sem when reading or changing
+	 * EAs.
+	 */
+	struct rw_semaphore xattr_sem;
+	// rwlock_t i_meta_lock;
+
+	struct inode	vfs_inode;
+#endif
+	// struct list_head i_orphan;	/* unlinked but open inodes */
+};
+
+/*
  * Allocation flags
  */
 
@@ -87,6 +111,11 @@ struct ux_fs {
 };
 
 #ifdef __KERNEL__
+
+static inline struct ux_inode_info *UX_I(struct inode *inode)
+{
+        return container_of(inode, struct ux_inode_info, vfs_inode);
+}
 
 extern ino_t ux_inode_alloc(struct super_block *);
 extern __u32 ux_data_alloc(struct super_block *);

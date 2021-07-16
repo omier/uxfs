@@ -10,6 +10,8 @@
 #include <linux/slab.h>
 
 #include "ux_fs.h"
+#include "ux_xattr.h"
+// #include "ux_acl.h"
 
 /*
  * Add "name" to the directory "dip"
@@ -177,6 +179,8 @@ int ux_create(struct inode *dip, struct dentry *dentry, umode_t mode, bool excl)
 		iput(inode);
 		return -ENOSPC;
 	}
+	init_rwsem(&UX_I(inode)->xattr_sem);
+
 	ux_diradd(dip, (char *)dentry->d_name.name, inum);
 
 	set_nlink(inode, 1);
@@ -245,6 +249,8 @@ int ux_mkdir(struct inode *dip, struct dentry *dentry, umode_t mode)
 		iput(inode);
 		return -ENOSPC;
 	}
+	init_rwsem(&UX_I(inode)->xattr_sem);
+
 	ux_diradd(dip, (char *)dentry->d_name.name, inum);
 
 	set_nlink(inode, 2);
@@ -401,4 +407,7 @@ const struct inode_operations ux_dir_inops = {
 	.rmdir	= ux_rmdir,
 	.link	= ux_link,
 	.unlink	= ux_unlink,
+	.listxattr	= ux_listxattr,
+	// .get_acl	= ux_get_acl,
+	// .set_acl	= ux_set_acl,
 };

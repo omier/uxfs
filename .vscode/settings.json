@@ -1,0 +1,6 @@
+{
+    "files.associations": {
+        "ux_fs.h": "c",
+        "ux_xattr.h": "c"
+    }
+}

@@ -25,7 +25,7 @@ wipefs: cmds
 
 mount: $(FSFILE)
 	mkdir -p $(FSDIR)
-	mount -o loop $(FSFILE) $(FSDIR)
+	mount -o loop,acl,user_xattr $(FSFILE) $(FSDIR)
 
 umount:
 	umount $(FSDIR)
@@ -34,4 +34,4 @@ work: all load wipefs mount
 
 delete: umount unload clean
 
-.PHONY: all cmds kern clean load unload wipefs mount umount
+.PHONY: all cmds kern clean load unload wipefs mount umount work delete
