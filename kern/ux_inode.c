@@ -84,6 +84,8 @@ struct inode *ux_iget(struct super_block *sb, unsigned long ino)
 
 	di = (struct ux_inode *)(bh->b_data);
 	inode->i_mode = di->i_mode;
+	void* xattr = kmalloc(di->i_xattr_size, GFP_KERNEL);
+	struct posix_acl* acl = posix_acl_from_xattr(&init_user_ns, xattr, di->i_xattr_size);
 	if (di->i_mode & S_IFDIR) {
 		inode->i_mode |= S_IFDIR;
 		inode->i_op = &ux_dir_inops;
@@ -106,8 +108,6 @@ struct inode *ux_iget(struct super_block *sb, unsigned long ino)
 	inode->i_atime.tv_nsec = 0;
 	inode->i_mtime.tv_nsec = 0;
 	inode->i_ctime.tv_nsec = 0;
-	// inode->i_acl = posix_acl_from_mode(inode->i_mode, GFP_KERNEL);
-	// inode->i_default_acl = posix_acl_from_mode(inode->i_mode, GFP_KERNEL);
 	inode->i_private = kmalloc(sizeof(struct ux_inode), GFP_KERNEL);
 	memcpy(inode->i_private, di, sizeof(struct ux_inode));
 	brelse(bh);

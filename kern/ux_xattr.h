@@ -1,5 +1,6 @@
 #include <linux/xattr.h>
 #include <linux/posix_acl.h>
+#include <linux/posix_acl_xattr.h>
 
 /* Magic value in attribute blocks */
 #define UX_XATTR_MAGIC		0xEA020000

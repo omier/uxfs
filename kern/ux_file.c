@@ -101,6 +101,6 @@ const struct inode_operations ux_file_inops = {
 	.link	= ux_link,
 	.unlink	= ux_unlink,
 	.listxattr	= generic_listxattr,
-	// .get_acl	= get_acl,
+	.get_acl	= get_acl,
 	.set_acl	= ux_simple_set_acl,
 };

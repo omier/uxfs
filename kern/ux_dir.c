@@ -178,7 +178,6 @@ int ux_create(struct inode *dip, struct dentry *dentry, umode_t mode, bool excl)
 		iput(inode);
 		return -ENOSPC;
 	}
-	init_rwsem(&UX_I(inode)->xattr_sem);
 
 	ux_diradd(dip, (char *)dentry->d_name.name, inum);
 
@@ -248,7 +247,6 @@ int ux_mkdir(struct inode *dip, struct dentry *dentry, umode_t mode)
 		iput(inode);
 		return -ENOSPC;
 	}
-	init_rwsem(&UX_I(inode)->xattr_sem);
 
 	ux_diradd(dip, (char *)dentry->d_name.name, inum);
 
@@ -266,8 +264,8 @@ int ux_mkdir(struct inode *dip, struct dentry *dentry, umode_t mode)
 	inode->i_mapping->a_ops = &ux_aops;
 	inode->i_mode = mode | S_IFDIR;
 	inode->i_ino = inum;
-	// inode->i_acl = posix_acl_from_mode(inode->i_mode, GFP_KERNEL);
-	// inode->i_default_acl = posix_acl_from_mode(inode->i_mode, GFP_KERNEL);
+	inode->i_acl = posix_acl_from_mode(inode->i_mode, GFP_KERNEL);
+	inode->i_default_acl = posix_acl_from_mode(inode->i_mode, GFP_KERNEL);
 	inode->i_private = kmalloc(sizeof(struct ux_inode), GFP_KERNEL);
 
 	nip = (struct ux_inode *)inode->i_private;
@@ -409,6 +407,6 @@ const struct inode_operations ux_dir_inops = {
 	.link	= ux_link,
 	.unlink	= ux_unlink,
 	.listxattr	= generic_listxattr,
-	// .get_acl	= get_acl,
+	.get_acl	= get_acl,
 	.set_acl	= ux_simple_set_acl,
 };
