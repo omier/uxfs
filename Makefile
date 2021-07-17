@@ -25,7 +25,7 @@ wipefs: cmds
 
 mount: $(FSFILE)
 	mkdir -p $(FSDIR)
-	mount -o loop,acl,user_xattr $(FSFILE) $(FSDIR)
+	mount -o loop,acl $(FSFILE) $(FSDIR)
 
 umount:
 	umount $(FSDIR)

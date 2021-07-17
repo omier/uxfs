@@ -57,8 +57,6 @@ struct ux_inode {
  */
 struct ux_inode_info {
 	__le32	i_data[15];
-	__u32	i_file_acl;
-	__u32	i_dir_acl;
 
 #ifdef __KERNEL__
 	/*

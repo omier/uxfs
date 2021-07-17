@@ -1,4 +1,5 @@
 #include <linux/xattr.h>
+#include <linux/posix_acl.h>
 
 /* Magic value in attribute blocks */
 #define UX_XATTR_MAGIC		0xEA020000
@@ -7,9 +8,8 @@
 #define UX_XATTR_REFCOUNT_MAX		1024
 
 /* Name indexes */
-#define UX_XATTR_INDEX_USER					1
-#define UX_XATTR_INDEX_POSIX_ACL_ACCESS		2
-#define UX_XATTR_INDEX_POSIX_ACL_DEFAULT	3
+#define UX_XATTR_INDEX_POSIX_ACL_ACCESS		1
+#define UX_XATTR_INDEX_POSIX_ACL_DEFAULT	2
 
 struct ux_xattr_header {
 	__le32	h_magic;	/* magic number for identification */
@@ -48,3 +48,4 @@ extern const struct xattr_handler *ux_xattr_handlers[];
 extern ssize_t ux_listxattr(struct dentry *, char *, size_t);
 extern int ux_xattr_get(struct inode *, int, const char *, void *, size_t);
 extern int ux_xattr_set(struct inode *, int, const char *, const void *, size_t, int);
+extern int ux_simple_set_acl(struct inode *, struct posix_acl *, int);

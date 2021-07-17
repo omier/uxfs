@@ -12,7 +12,6 @@
 #include <linux/uaccess.h>
 #include "ux_fs.h"
 #include "ux_xattr.h"
-#include <linux/posix_acl.h>
 
 /*
  * This function looks for "name" in the directory "dip".
@@ -107,6 +106,8 @@ struct inode *ux_iget(struct super_block *sb, unsigned long ino)
 	inode->i_atime.tv_nsec = 0;
 	inode->i_mtime.tv_nsec = 0;
 	inode->i_ctime.tv_nsec = 0;
+	// inode->i_acl = posix_acl_from_mode(inode->i_mode, GFP_KERNEL);
+	// inode->i_default_acl = posix_acl_from_mode(inode->i_mode, GFP_KERNEL);
 	inode->i_private = kmalloc(sizeof(struct ux_inode), GFP_KERNEL);
 	memcpy(inode->i_private, di, sizeof(struct ux_inode));
 	brelse(bh);

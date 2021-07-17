@@ -1,6 +1,8 @@
 {
     "files.associations": {
         "ux_fs.h": "c",
-        "ux_xattr.h": "c"
+        "ux_xattr.h": "c",
+        "xattr.h": "c",
+        "posix_acl.h": "c"
     }
 }
