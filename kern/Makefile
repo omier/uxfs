@@ -1,5 +1,5 @@
 obj-m += uxfs.o
-uxfs-y := ux_alloc.o ux_file.o ux_dir.o ux_inode.o ux_xattr.o
+uxfs-y := ux_alloc.o ux_file.o ux_dir.o ux_inode.o ux_xattr.o ux_acl.o
 
 KDIR ?= /lib/modules/`uname -r`/build
 

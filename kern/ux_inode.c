@@ -12,6 +12,7 @@
 #include <linux/uaccess.h>
 #include "ux_fs.h"
 #include "ux_xattr.h"
+#include "ux_acl.h"
 
 /*
  * This function looks for "name" in the directory "dip".
@@ -53,8 +54,12 @@ int ux_find_entry(struct inode *dip, char *name)
 struct inode *ux_iget(struct super_block *sb, unsigned long ino)
 {
 	struct buffer_head *bh;
+	struct buffer_head *acl_bh;
 	struct ux_inode *di;
 	struct inode *inode;
+	struct posix_acl *acl, *default_acl;
+	void* default_acl_in_fs;
+	void* access_acl_in_fs;
 	int block;
 
 	pr_debug("uxfs: start %s with inode=%lu\n", __func__, ino);
@@ -83,9 +88,33 @@ struct inode *ux_iget(struct super_block *sb, unsigned long ino)
 		return inode;
 
 	di = (struct ux_inode *)(bh->b_data);
+
 	inode->i_mode = di->i_mode;
-	void* xattr = kmalloc(di->i_xattr_size, GFP_KERNEL);
-	struct posix_acl* acl = posix_acl_from_xattr(&init_user_ns, xattr, di->i_xattr_size);
+	
+	if (!di->i_acl_blk_addr) {
+		di->i_acl_blk_addr = ux_data_alloc(sb);
+		if (S_ISDIR(inode->i_mode)) {
+			inode->i_default_acl = posix_acl_from_mode(inode->i_mode, GFP_KERNEL);
+		} else {
+			inode->i_acl = posix_acl_from_mode(inode->i_mode, GFP_KERNEL);
+		}
+	} else {
+		acl_bh = sb_bread(sb, di->i_acl_blk_addr);
+		if (!acl_bh) {
+			pr_debug("Unable to read inode's %lu acl at block %lu\n", ino, di->i_acl_blk_addr);
+			return ERR_PTR(-EIO);
+		}
+
+		default_acl_in_fs = kmalloc(di->i_default_acl_size, GFP_KERNEL);
+		access_acl_in_fs = kmalloc(di->i_access_acl_size, GFP_KERNEL);
+		
+		memcpy(default_acl_in_fs, acl_bh->b_data + UX_DEFAULT_ACL_OFFSET, di->i_default_acl_size);
+		memcpy(access_acl_in_fs, acl_bh->b_data + UX_ACCESS_ACL_OFFSET, di->i_access_acl_size);
+		inode->i_default_acl = ux_acl_from_disk(default_acl_in_fs, di->i_default_acl_size);
+		inode->i_acl = ux_acl_from_disk(access_acl_in_fs, di->i_access_acl_size);
+		brelse(acl_bh);
+	}
+
 	if (di->i_mode & S_IFDIR) {
 		inode->i_mode |= S_IFDIR;
 		inode->i_op = &ux_dir_inops;
@@ -123,9 +152,11 @@ struct inode *ux_iget(struct super_block *sb, unsigned long ino)
 int ux_write_inode(struct inode *inode, struct writeback_control *wbc)
 {
 	unsigned long ino = inode->i_ino;
-	struct ux_inode *uip = (struct ux_inode *)inode->i_private;
-	struct buffer_head  *bh;
-	__u32 blk;
+	struct ux_inode* uip = (struct ux_inode *)inode->i_private;
+	struct buffer_head* bh;
+	struct buffer_head* acl_bh;
+	void* default_acl_in_fs;
+	void* access_acl_in_fs;
 
 	pr_debug("uxfs: start %s with inode=%lu\n", __func__, ino);
 
@@ -134,8 +165,18 @@ int ux_write_inode(struct inode *inode, struct writeback_control *wbc)
 		return -EIO;
 	}
 
-	blk = UX_INODE_BLOCK + ino;
-	bh = sb_bread(inode->i_sb, blk);
+	bh = sb_bread(inode->i_sb, UX_INODE_BLOCK + ino);
+	if (!bh) {
+		pr_debug("Unable to write inode %lu\n", ino);
+		return ERR_PTR(-EIO);
+	}
+
+	acl_bh = sb_bread(inode->i_sb, uip->i_acl_blk_addr);
+	if (!acl_bh) {
+		pr_debug("Unable to write inode's %lu acl at block %lu\n", ino, uip->i_acl_blk_addr);
+		return ERR_PTR(-EIO);
+	}
+
 	uip->i_mode = inode->i_mode;
 	uip->i_nlink = inode->i_nlink;
 	uip->i_atime = inode->i_atime.tv_sec;
@@ -148,6 +189,14 @@ int ux_write_inode(struct inode *inode, struct writeback_control *wbc)
 	memcpy(bh->b_data, uip, sizeof(struct ux_inode));
 	mark_buffer_dirty(bh);
 	brelse(bh);
+
+	default_acl_in_fs = ux_acl_to_disk(inode->i_default_acl, uip->i_default_acl_size);
+	access_acl_in_fs = ux_acl_to_disk(inode->i_acl, uip->i_access_acl_size);
+	memcpy(acl_bh->b_data + UX_DEFAULT_ACL_OFFSET, default_acl_in_fs, uip->i_default_acl_size);
+	memcpy(acl_bh->b_data + UX_ACCESS_ACL_OFFSET, access_acl_in_fs, uip->i_access_acl_size);
+
+	mark_buffer_dirty(acl_bh);
+	brelse(acl_bh);
 	return 0;
 }
 

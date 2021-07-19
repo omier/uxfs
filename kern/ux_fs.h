@@ -19,6 +19,8 @@ extern const struct file_operations ux_file_operations;
 #define UX_MAGIC 0x58494e55
 #define UX_INODE_BLOCK 8
 #define UX_ROOT_INO 2
+#define UX_DEFAULT_ACL_OFFSET 0
+#define UX_ACCESS_ACL_OFFSET UX_BSIZE/2
 
 /*
  * The on-disk superblock. The number of inodes and 
@@ -50,9 +52,10 @@ struct ux_inode
         __s32 i_gid;
         __u32 i_size;
         __u32 i_blocks;
-        __u32 i_xattr_size;
         __u32 i_addr[UX_DIRECT_BLOCKS];
-        __u32 i_xattr_blk_addr;
+        __u32 i_acl_blk_addr;
+        __u32 i_default_acl_size;
+        __u32 i_access_acl_size;
 };
 
 /*

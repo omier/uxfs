@@ -15,9 +15,44 @@
 #include <string.h>
 #include <stdlib.h>
 #include "../kern/ux_fs.h"
+#include "../kern/ux_acl.h"
 
-int
-main(int argc, char **argv)
+// /*
+//  * Allocate a new ACL with the specified number of entries.
+//  */
+// struct posix_acl* ux_posix_acl_alloc(int count)
+// {
+// 	const size_t size = sizeof(struct posix_acl) + count * sizeof(struct posix_acl_entry);
+// 	struct posix_acl *acl = malloc(size);
+// 	if (acl) {
+// 		atomic_set(&acl->a_refcount, 1);
+// 	        acl->a_count = count;
+//         }
+// 	return acl;
+// }
+
+// /*
+//  * Create an ACL representing the file mode permission bits of an inode.
+//  */
+// struct posix_acl* ux_posix_acl_from_mode(unsigned short mode)
+// {
+// 	struct posix_acl *acl = ux_posix_acl_alloc(3);
+// 	if (!acl) {
+// 	   return NULL;
+//         }
+
+// 	acl->a_entries[0].e_tag  = ACL_USER_OBJ;
+// 	acl->a_entries[0].e_perm = (mode & S_IRWXU) >> 6;
+
+// 	acl->a_entries[1].e_tag  = ACL_GROUP_OBJ;
+// 	acl->a_entries[1].e_perm = (mode & S_IRWXG) >> 3;
+
+// 	acl->a_entries[2].e_tag  = ACL_OTHER;
+// 	acl->a_entries[2].e_perm = (mode & S_IRWXO);
+// 	return acl;
+// }
+
+int main(int argc, char **argv)
 {
         struct ux_dirent        dir;
         struct ux_superblock    sb;
@@ -28,8 +63,8 @@ main(int argc, char **argv)
         int                     map_blks;
         char                    block[UX_BSIZE];
         struct posix_acl* acl;
-        struct simple_xattrs xattr_list;
-        void* xattr = malloc(BLOCK_SIZE);
+        size_t acl_size;
+        void* acl_in_fs;
 
         if (argc != 2) {
                 fprintf(stderr, "uxmkfs: Need to specify device\n");
@@ -56,7 +91,7 @@ main(int argc, char **argv)
         sb.s_magic = UX_MAGIC;
         sb.s_mod = UX_FSCLEAN;
         sb.s_nifree = UX_MAXFILES - 4;  
-        sb.s_nbfree = UX_MAXBLOCKS - 4;
+        sb.s_nbfree = UX_MAXBLOCKS - 2;
 
         /*
          * First 4 inodes are in use. Inodes 0 and 1 are not
@@ -84,14 +119,14 @@ main(int argc, char **argv)
 
         sb.s_block[0] = UX_BLOCK_INUSE;
         sb.s_block[1] = UX_BLOCK_INUSE;
-        sb.s_block[2] = UX_BLOCK_INUSE;
-        sb.s_block[3] = UX_BLOCK_INUSE;
+        // sb.s_block[2] = UX_BLOCK_INUSE;
+        // sb.s_block[3] = UX_BLOCK_INUSE;
 
         /*
          * The rest of the blocks are marked unused
          */
 
-        for (i = 4 ; i < UX_MAXBLOCKS ; i++) {
+        for (i = 2 ; i < UX_MAXBLOCKS ; i++) {
                 sb.s_block[i] = UX_BLOCK_FREE;
         }
 
@@ -114,19 +149,14 @@ main(int argc, char **argv)
         inode.i_size = UX_BSIZE;
         inode.i_blocks = 1;
         inode.i_addr[0] = UX_FIRST_DATA_BLOCK;
-        inode.i_xattr_blk_addr = inode.i_addr[0] + 1;
-        acl = posix_acl_from_mode(inode.i_mode, GFP_KERNEL);
-        memset(xattr, 0, BLOCK_SIZE);
-        inode.i_xattr_size = posix_acl_xattr_size(acl->a_count);
-        posix_acl_to_xattr(&init_user_ns, acl, xattr, inode.i_xattr_size);
-        memset(&xattr_list, 0, sizeof(struct simple_xattrs));
-        simple_xattrs_init(&xattr_list);
-        simple_xattr_set(&xattr_list, XATTR_NAME_POSIX_ACL_DEFAULT, acl, inode.i_xattr_size, XATTR_CREATE);
+        // inode.i_acl_blk_addr = inode.i_addr[0] + 1;
+        // acl = ux_posix_acl_from_mode(inode.i_mode);
+        // acl_in_fs = ux_acl_to_disk(acl, &inode.i_default_acl_size);
 
         lseek(devfd, UX_INODE_BLOCK * UX_BSIZE + 1024, SEEK_SET);
         write(devfd, (char *)&inode, sizeof(struct ux_inode));
-        lseek(devfd, inode.i_xattr_blk_addr * UX_BSIZE, SEEK_SET);
-        write(devfd, (char *)&xattr_list, inode.i_xattr_size);
+        // lseek(devfd, inode.i_acl_blk_addr * UX_BSIZE + UX_DEFAULT_ACL_OFFSET, SEEK_SET);
+        // write(devfd, (char *)acl_in_fs, inode.i_default_acl_size);
 
         memset((void *)&inode, 0 , sizeof(struct ux_inode));
         inode.i_mode = S_IFDIR | 0755;
@@ -138,22 +168,16 @@ main(int argc, char **argv)
         inode.i_gid = 0;
         inode.i_size = UX_BSIZE;
         inode.i_blocks = 1;
-        inode.i_addr[0] = UX_FIRST_DATA_BLOCK + 2;
-        inode.i_xattr_blk_addr = inode.i_addr[0] + 1;
-        acl = posix_acl_from_mode(inode.i_mode, GFP_KERNEL);
-        memset(xattr, 0, BLOCK_SIZE);
-        posix_acl_to_xattr(&init_user_ns, acl, xattr, posix_acl_xattr_size(acl->a_count));
-        memset(&xattr_list, 0, sizeof(struct simple_xattrs));
-        simple_xattrs_init(&xattr_list);
-        simple_xattr_set(&xattr_list, XATTR_NAME_POSIX_ACL_DEFAULT, acl, inode.i_xattr_size, XATTR_CREATE);
-        char *xattr_names = malloc(512);
-        ssize_t xattr_names_size = simple_xattr_list(NULL, &xattr_list, xattr_names, 512);
+        inode.i_addr[0] = UX_FIRST_DATA_BLOCK + 1;
+        // inode.i_acl_blk_addr = inode.i_addr[0] + 1;
+        // acl = ux_posix_acl_from_mode(inode.i_mode);
+        // acl_in_fs = ux_acl_to_disk(acl, &inode.i_access_acl_size);
         
 
         lseek(devfd, UX_INODE_BLOCK * UX_BSIZE + 1536, SEEK_SET);
         write(devfd, (char *)&inode, sizeof(struct ux_inode));
-        lseek(devfd, inode.i_xattr_blk_addr * UX_BSIZE, SEEK_SET);
-        write(devfd, (char *)&xattr_list, inode.i_xattr_size);
+        // lseek(devfd, inode.i_acl_blk_addr * UX_BSIZE + UX_ACCESS_ACL_OFFSET, SEEK_SET);
+        // write(devfd, (char *)acl_in_fs, inode.i_access_acl_size);
 
         /*
          * Fill in the directory entries for root 

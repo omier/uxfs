@@ -7,6 +7,7 @@
 
 #include "ux_fs.h"
 #include "ux_xattr.h"
+#include "ux_acl.h"
 
 const struct file_operations ux_file_operations = {
 	.llseek		= generic_file_llseek,
@@ -20,7 +21,7 @@ int ux_get_block(struct inode *inode, sector_t block,
 {
 	struct super_block *sb = inode->i_sb;
 	struct ux_inode *uip = (struct ux_inode *)inode->i_private;
-	__u32 blk;
+	__u32 blk, acl_blk_num;
 
 	pr_debug("uxfs: start %s with inode=%lu block=%lu create=%d\n",
 		__func__, inode->i_ino, (long unsigned int)block, create);
@@ -42,8 +43,15 @@ int ux_get_block(struct inode *inode, sector_t block,
 			pr_err("uxfs: %s - Out of space\n", __func__);
 			return -ENOSPC;
 		}
+
+		acl_blk_num = ux_data_alloc(sb);
+		if (!acl_blk_num) {
+			iput(inode);
+			return -ENOSPC;
+		}
+
 		uip->i_addr[block] = blk;
-		uip->i_blocks++;
+		uip->i_acl_blk_addr = acl_blk_num;
 		inode->i_blocks++;
 		uip->i_size = inode->i_size;
 		mark_inode_dirty(inode);
@@ -101,6 +109,6 @@ const struct inode_operations ux_file_inops = {
 	.link	= ux_link,
 	.unlink	= ux_unlink,
 	.listxattr	= generic_listxattr,
-	.get_acl	= get_acl,
-	.set_acl	= ux_simple_set_acl,
+	.get_acl	= ux_get_acl,
+	.set_acl	= ux_set_acl,
 };

@@ -49,4 +49,3 @@ extern const struct xattr_handler *ux_xattr_handlers[];
 extern ssize_t ux_listxattr(struct dentry *, char *, size_t);
 extern int ux_xattr_get(struct inode *, int, const char *, void *, size_t);
 extern int ux_xattr_set(struct inode *, int, const char *, const void *, size_t, int);
-extern int ux_simple_set_acl(struct inode *, struct posix_acl *, int);

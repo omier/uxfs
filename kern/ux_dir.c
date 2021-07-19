@@ -11,6 +11,7 @@
 
 #include "ux_fs.h"
 #include "ux_xattr.h"
+#include "ux_acl.h"
 
 /*
  * Add "name" to the directory "dip"
@@ -158,6 +159,7 @@ int ux_create(struct inode *dip, struct dentry *dentry, umode_t mode, bool excl)
 	struct ux_inode *nip;
 	struct inode *inode;
 	ino_t inum;
+	int error;
 
 	/*
 	 * See if the entry exists. If not, create a new
@@ -207,6 +209,11 @@ int ux_create(struct inode *dip, struct dentry *dentry, umode_t mode, bool excl)
 	nip->i_blocks = 0;
 	memset(nip->i_addr, 0, UX_DIRECT_BLOCKS * sizeof(nip->i_addr[0]));
 
+	error = ux_init_acl(dip, inode);
+	if (error) {
+		return error;
+	}
+
 	insert_inode_hash(inode);
 	d_instantiate(dentry, inode);
 	mark_inode_dirty(inode);
@@ -228,6 +235,8 @@ int ux_mkdir(struct inode *dip, struct dentry *dentry, umode_t mode)
 	struct inode *inode;
 	ino_t inum;
 	int blk;
+	int acl_blk_num;
+	int error;
 
 	/*
 	 * Make sure there isn't already an entry. If not,
@@ -244,6 +253,12 @@ int ux_mkdir(struct inode *dip, struct dentry *dentry, umode_t mode)
 
 	inum = ux_inode_alloc(sb);
 	if (!inum) {
+		iput(inode);
+		return -ENOSPC;
+	}
+
+	acl_blk_num = ux_data_alloc(sb);
+	if (!acl_blk_num) {
 		iput(inode);
 		return -ENOSPC;
 	}
@@ -278,10 +293,15 @@ int ux_mkdir(struct inode *dip, struct dentry *dentry, umode_t mode)
 		      __kgid_val(dip->i_gid) : __kgid_val(current_fsgid());
 	nip->i_size = 512;
 	nip->i_blocks = 1;
+	nip->i_acl_blk_addr = acl_blk_num;
 	memset(nip->i_addr, 0, UX_DIRECT_BLOCKS * sizeof(nip->i_addr[0]));
 
 	blk = ux_data_alloc(sb);
 	nip->i_addr[0] = blk;
+	error = ux_init_acl(dip, inode);
+	if (error) {
+		return error;
+	}
 	bh = sb_bread(sb, blk);
 	memset(bh->b_data, 0, UX_BSIZE);
 	dirent = (struct ux_dirent *)bh->b_data;
@@ -407,6 +427,6 @@ const struct inode_operations ux_dir_inops = {
 	.link	= ux_link,
 	.unlink	= ux_unlink,
 	.listxattr	= generic_listxattr,
-	.get_acl	= get_acl,
-	.set_acl	= ux_simple_set_acl,
+	.get_acl	= ux_get_acl,
+	.set_acl	= ux_set_acl,
 };
