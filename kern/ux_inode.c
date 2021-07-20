@@ -93,6 +93,7 @@ struct inode *ux_iget(struct super_block *sb, unsigned long ino)
 	
 	if (!di->i_acl_blk_addr) {
 		di->i_acl_blk_addr = ux_data_alloc(sb);
+
 		if (S_ISDIR(inode->i_mode)) {
 			inode->i_default_acl = posix_acl_from_mode(inode->i_mode, GFP_KERNEL);
 		} else {
@@ -190,8 +191,8 @@ int ux_write_inode(struct inode *inode, struct writeback_control *wbc)
 	mark_buffer_dirty(bh);
 	brelse(bh);
 
-	default_acl_in_fs = ux_acl_to_disk(inode->i_default_acl, uip->i_default_acl_size);
-	access_acl_in_fs = ux_acl_to_disk(inode->i_acl, uip->i_access_acl_size);
+	default_acl_in_fs = ux_acl_to_disk(inode->i_default_acl, &uip->i_default_acl_size);
+	access_acl_in_fs = ux_acl_to_disk(inode->i_acl, &uip->i_access_acl_size);
 	memcpy(acl_bh->b_data + UX_DEFAULT_ACL_OFFSET, default_acl_in_fs, uip->i_default_acl_size);
 	memcpy(acl_bh->b_data + UX_ACCESS_ACL_OFFSET, access_acl_in_fs, uip->i_access_acl_size);
 

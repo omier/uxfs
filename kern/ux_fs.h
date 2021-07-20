@@ -54,8 +54,8 @@ struct ux_inode
         __u32 i_blocks;
         __u32 i_addr[UX_DIRECT_BLOCKS];
         __u32 i_acl_blk_addr;
-        __u32 i_default_acl_size;
-        __u32 i_access_acl_size;
+        unsigned long int i_default_acl_size;
+        unsigned long int i_access_acl_size;
 };
 
 /*
