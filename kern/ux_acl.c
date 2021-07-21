@@ -9,7 +9,7 @@
 /*
  * Convert from filesystem to in-memory representation.
  */
-struct posix_acl* ux_acl_from_disk(const void *value, size_t size)
+struct posix_acl* ux_acl_from_disk(const void *value, int size)
 {
 	const char *end = (char *)value + size;
 	int n, count;
@@ -30,34 +30,30 @@ struct posix_acl* ux_acl_from_disk(const void *value, size_t size)
 	for (n=0; n < count; n++) {
 		ux_acl_entry *entry =
 			(ux_acl_entry *)value;
-		if ((char *)value + sizeof(ux_acl_entry_short) > end)
+		if ((char *)value + sizeof(ux_acl_entry) > end)
 			goto fail;
-		acl->a_entries[n].e_tag  = le16_to_cpu(entry->e_tag);
-		acl->a_entries[n].e_perm = le16_to_cpu(entry->e_perm);
+		acl->a_entries[n].e_tag  = entry->e_tag;
+		acl->a_entries[n].e_perm = entry->e_perm;
 		switch(acl->a_entries[n].e_tag) {
 			case ACL_USER_OBJ:
 			case ACL_GROUP_OBJ:
 			case ACL_MASK:
 			case ACL_OTHER:
 				value = (char *)value +
-					sizeof(ux_acl_entry_short);
+					sizeof(ux_acl_entry);
 				break;
 
 			case ACL_USER:
 				value = (char *)value + sizeof(ux_acl_entry);
 				if ((char *)value > end)
 					goto fail;
-				acl->a_entries[n].e_uid =
-					make_kuid(&init_user_ns,
-						  le32_to_cpu(entry->e_id));
+				acl->a_entries[n].e_uid = entry->e_uid;
 				break;
 			case ACL_GROUP:
 				value = (char *)value + sizeof(ux_acl_entry);
 				if ((char *)value > end)
 					goto fail;
-				acl->a_entries[n].e_gid =
-					make_kgid(&init_user_ns,
-						  le32_to_cpu(entry->e_id));
+				acl->a_entries[n].e_gid = entry->e_gid;
 				break;
 
 			default:
@@ -76,28 +72,32 @@ fail:
 /*
  * Convert from in-memory to filesystem representation.
  */
-void* ux_acl_to_disk(const struct posix_acl *acl, size_t *size)
+void* ux_acl_to_disk(const struct posix_acl *acl, int *size)
 {
+	printk("ux_fs: 400");
 	char *acl_entries;
 	size_t n;
 
+	printk("ux_fs: 401");
 	*size = ux_acl_size(acl->a_count);
-	acl_entries = kmalloc(acl->a_count * sizeof(ux_acl_entry), GFP_KERNEL);
+	printk("ux_fs: 402");
+	acl_entries = kmalloc(*size, GFP_KERNEL);
+	printk("ux_fs: 403");
 
 	for (n=0; n < acl->a_count; n++) {
+		printk("ux_fs: 404-%d", n);
 		const struct posix_acl_entry *acl_e = &acl->a_entries[n];
+		printk("ux_fs: 405-%d", n);
 		ux_acl_entry *entry = (ux_acl_entry *)acl_entries;
 		entry->e_tag = cpu_to_le16(acl_e->e_tag);
 		entry->e_perm = cpu_to_le16(acl_e->e_perm);
 		switch(acl_e->e_tag) {
 			case ACL_USER:
-				entry->e_id = cpu_to_le32(
-					from_kuid(&init_user_ns, acl_e->e_uid));
+				entry->e_uid = acl_e->e_uid;
 				acl_entries += sizeof(ux_acl_entry);
 				break;
 			case ACL_GROUP:
-				entry->e_id = cpu_to_le32(
-					from_kgid(&init_user_ns, acl_e->e_gid));
+				entry->e_gid = acl_e->e_gid;
 				acl_entries += sizeof(ux_acl_entry);
 				break;
 
@@ -105,7 +105,7 @@ void* ux_acl_to_disk(const struct posix_acl *acl, size_t *size)
 			case ACL_GROUP_OBJ:
 			case ACL_MASK:
 			case ACL_OTHER:
-				acl_entries += sizeof(ux_acl_entry_short);
+				acl_entries += sizeof(ux_acl_entry);
 				break;
 
 			default:
@@ -115,6 +115,7 @@ void* ux_acl_to_disk(const struct posix_acl *acl, size_t *size)
 	return acl_entries;
 
 fail:
+	printk("ux_fs: 406");
 	kfree(acl_entries);
 	return ERR_PTR(-EINVAL);
 }

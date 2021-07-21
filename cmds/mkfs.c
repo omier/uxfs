@@ -154,7 +154,7 @@ int main(int argc, char **argv)
         // acl_in_fs = ux_acl_to_disk(acl, &inode.i_default_acl_size);
 
         lseek(devfd, UX_INODE_BLOCK * UX_BSIZE + 1024, SEEK_SET);
-        write(devfd, (char *)&inode, sizeof(struct ux_inode));
+        write(devfd, (char *)&inode, sizeof(struct ux_superblock));
         // lseek(devfd, inode.i_acl_blk_addr * UX_BSIZE + UX_DEFAULT_ACL_OFFSET, SEEK_SET);
         // write(devfd, (char *)acl_in_fs, inode.i_default_acl_size);
 
@@ -175,7 +175,7 @@ int main(int argc, char **argv)
         
 
         lseek(devfd, UX_INODE_BLOCK * UX_BSIZE + 1536, SEEK_SET);
-        write(devfd, (char *)&inode, sizeof(struct ux_inode));
+        write(devfd, (char *)&inode, sizeof(struct ux_superblock));
         // lseek(devfd, inode.i_acl_blk_addr * UX_BSIZE + UX_ACCESS_ACL_OFFSET, SEEK_SET);
         // write(devfd, (char *)acl_in_fs, inode.i_access_acl_size);
 

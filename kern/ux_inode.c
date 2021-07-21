@@ -91,31 +91,44 @@ struct inode *ux_iget(struct super_block *sb, unsigned long ino)
 
 	inode->i_mode = di->i_mode;
 	
+	printk("ux_fs: 1");
 	if (!di->i_acl_blk_addr) {
+		printk("ux_fs: 4");
 		di->i_acl_blk_addr = ux_data_alloc(sb);
 
-		if (S_ISDIR(inode->i_mode)) {
-			inode->i_default_acl = posix_acl_from_mode(inode->i_mode, GFP_KERNEL);
-		} else {
-			inode->i_acl = posix_acl_from_mode(inode->i_mode, GFP_KERNEL);
-		}
+		printk("ux_fs: 6");
+		inode->i_default_acl = posix_acl_from_mode(inode->i_mode, GFP_KERNEL);
+		printk("ux_fs: 7");
+		inode->i_acl = posix_acl_from_mode(inode->i_mode, GFP_KERNEL);
 	} else {
+		printk("ux_fs: 8");
 		acl_bh = sb_bread(sb, di->i_acl_blk_addr);
+		printk("ux_fs: 9");
 		if (!acl_bh) {
+			printk("ux_fs: 10");
 			pr_debug("Unable to read inode's %lu acl at block %lu\n", ino, di->i_acl_blk_addr);
 			return ERR_PTR(-EIO);
 		}
 
+		printk("ux_fs: 11");
 		default_acl_in_fs = kmalloc(di->i_default_acl_size, GFP_KERNEL);
+		printk("ux_fs: 17");
 		access_acl_in_fs = kmalloc(di->i_access_acl_size, GFP_KERNEL);
 		
+		printk("ux_fs: 12");
 		memcpy(default_acl_in_fs, acl_bh->b_data + UX_DEFAULT_ACL_OFFSET, di->i_default_acl_size);
+		printk("ux_fs: 13");
 		memcpy(access_acl_in_fs, acl_bh->b_data + UX_ACCESS_ACL_OFFSET, di->i_access_acl_size);
+		printk("ux_fs: 14");
 		inode->i_default_acl = ux_acl_from_disk(default_acl_in_fs, di->i_default_acl_size);
+		printk("ux_fs: 15");
 		inode->i_acl = ux_acl_from_disk(access_acl_in_fs, di->i_access_acl_size);
+		printk("ux_fs: 16");
 		brelse(acl_bh);
+		printk("ux_fs: 18");
 	}
-
+	
+	printk("ux_fs: 3");
 	if (di->i_mode & S_IFDIR) {
 		inode->i_mode |= S_IFDIR;
 		inode->i_op = &ux_dir_inops;
@@ -143,6 +156,7 @@ struct inode *ux_iget(struct super_block *sb, unsigned long ino)
 	brelse(bh);
 
 	unlock_new_inode(inode);
+	printk("ux_fs: 2");
 	return inode;
 }
 
@@ -152,8 +166,11 @@ struct inode *ux_iget(struct super_block *sb, unsigned long ino)
 
 int ux_write_inode(struct inode *inode, struct writeback_control *wbc)
 {
+	printk("ux_fs: 300");
 	unsigned long ino = inode->i_ino;
+	printk("ux_fs: 301");
 	struct ux_inode* uip = (struct ux_inode *)inode->i_private;
+	printk("ux_fs: 302");
 	struct buffer_head* bh;
 	struct buffer_head* acl_bh;
 	void* default_acl_in_fs;
@@ -162,19 +179,16 @@ int ux_write_inode(struct inode *inode, struct writeback_control *wbc)
 	pr_debug("uxfs: start %s with inode=%lu\n", __func__, ino);
 
 	if (ino < UX_ROOT_INO || ino > UX_MAXFILES) {
+		printk("ux_fs: 303");
 		pr_debug("uxfs: %s bad inode number %lu\n", __func__, ino);
 		return -EIO;
 	}
 
+	printk("ux_fs: 304");
 	bh = sb_bread(inode->i_sb, UX_INODE_BLOCK + ino);
 	if (!bh) {
+		printk("ux_fs: 305");
 		pr_debug("Unable to write inode %lu\n", ino);
-		return ERR_PTR(-EIO);
-	}
-
-	acl_bh = sb_bread(inode->i_sb, uip->i_acl_blk_addr);
-	if (!acl_bh) {
-		pr_debug("Unable to write inode's %lu acl at block %lu\n", ino, uip->i_acl_blk_addr);
 		return ERR_PTR(-EIO);
 	}
 
@@ -191,13 +205,33 @@ int ux_write_inode(struct inode *inode, struct writeback_control *wbc)
 	mark_buffer_dirty(bh);
 	brelse(bh);
 
-	default_acl_in_fs = ux_acl_to_disk(inode->i_default_acl, &uip->i_default_acl_size);
-	access_acl_in_fs = ux_acl_to_disk(inode->i_acl, &uip->i_access_acl_size);
-	memcpy(acl_bh->b_data + UX_DEFAULT_ACL_OFFSET, default_acl_in_fs, uip->i_default_acl_size);
-	memcpy(acl_bh->b_data + UX_ACCESS_ACL_OFFSET, access_acl_in_fs, uip->i_access_acl_size);
+	if (inode->i_acl || inode->i_default_acl) {
+		printk("ux_fs: 306");
+		acl_bh = sb_bread(inode->i_sb, uip->i_acl_blk_addr);
+		if (!acl_bh) {
+			printk("ux_fs: 307");
+			pr_debug("Unable to write inode's %lu acl at block %lu\n", ino, uip->i_acl_blk_addr);
+			return ERR_PTR(-EIO);
+		}
+		if (inode->i_default_acl) {
+			printk("ux_fs: 308");
+			default_acl_in_fs = ux_acl_to_disk(inode->i_default_acl, &uip->i_default_acl_size);
+			printk("ux_fs: 309");
+			memcpy(acl_bh->b_data + UX_DEFAULT_ACL_OFFSET, default_acl_in_fs, uip->i_default_acl_size);
+			printk("ux_fs: 311");
+		}
 
-	mark_buffer_dirty(acl_bh);
-	brelse(acl_bh);
+		if (inode->i_acl) {
+			access_acl_in_fs = ux_acl_to_disk(inode->i_acl, &uip->i_access_acl_size);
+			printk("ux_fs: 310");
+			memcpy(acl_bh->b_data + UX_ACCESS_ACL_OFFSET, access_acl_in_fs, uip->i_access_acl_size);
+			printk("ux_fs: 312");
+		}
+
+		mark_buffer_dirty(acl_bh);
+		brelse(acl_bh);
+	}
+	
 	return 0;
 }
 
@@ -362,29 +396,37 @@ static int ux_read_super(struct super_block *sb, void *data, int silent)
 	sb->s_xattr = ux_xattr_handlers;
 	sb->s_flags = (sb->s_flags & ~SB_POSIXACL) | SB_POSIXACL;
 
+	printk("ux_fs: 211");
 	inode = ux_iget(sb, UX_ROOT_INO);
+	printk("ux_fs: 212");
 	if (IS_ERR(inode)) {
+		printk("ux_fs: 213");
 		ret = PTR_ERR(inode);
 		goto out;
 	}
 
 	sb->s_root = d_make_root(inode);
+	printk("ux_fs: 214");
 	if (!sb->s_root) {
+		printk("ux_fs: 215");
 		/* Nothing needed for the inode cleanup */
 		ret = -ENOMEM;
 		goto out;
 	}
 
+	printk("ux_fs: 216");
 	ux_write_super(sb);
+	printk("ux_fs: 217");
 
 	pr_debug("uxfs:  stop %s\n", __func__);
 	return 0;
 
 out:
+	printk("ux_fs: 2 out");
 	kfree(fs);
 	brelse(bh);
 
-	pr_debug("uxfs:  fail %s with %d\n", __func__, ret);
+	pr_debug("uxfs: fail %s with %d\n", __func__, ret);
 	return ret;
 }
 
