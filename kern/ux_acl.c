@@ -28,9 +28,8 @@ struct posix_acl* ux_acl_from_disk(const void *value, int size)
 	if (!acl)
 		return ERR_PTR(-ENOMEM);
 	for (n=0; n < count; n++) {
-		ux_acl_entry *entry =
-			(ux_acl_entry *)value;
-		if ((char *)value + sizeof(ux_acl_entry) > end)
+		struct posix_acl_entry *entry = (struct posix_acl_entry *)value;
+		if ((char *)value + sizeof(struct posix_acl_entry) > end)
 			goto fail;
 		acl->a_entries[n].e_tag  = entry->e_tag;
 		acl->a_entries[n].e_perm = entry->e_perm;
@@ -40,17 +39,17 @@ struct posix_acl* ux_acl_from_disk(const void *value, int size)
 			case ACL_MASK:
 			case ACL_OTHER:
 				value = (char *)value +
-					sizeof(ux_acl_entry);
+					sizeof(struct posix_acl_entry);
 				break;
 
 			case ACL_USER:
-				value = (char *)value + sizeof(ux_acl_entry);
+				value = (char *)value + sizeof(struct posix_acl_entry);
 				if ((char *)value > end)
 					goto fail;
 				acl->a_entries[n].e_uid = entry->e_uid;
 				break;
 			case ACL_GROUP:
-				value = (char *)value + sizeof(ux_acl_entry);
+				value = (char *)value + sizeof(struct posix_acl_entry);
 				if ((char *)value > end)
 					goto fail;
 				acl->a_entries[n].e_gid = entry->e_gid;
@@ -88,24 +87,24 @@ void* ux_acl_to_disk(const struct posix_acl *acl, int *size)
 		printk("ux_fs: 404-%d", n);
 		const struct posix_acl_entry *acl_e = &acl->a_entries[n];
 		printk("ux_fs: 405-%d", n);
-		ux_acl_entry *entry = (ux_acl_entry *)acl_entries;
-		entry->e_tag = cpu_to_le16(acl_e->e_tag);
-		entry->e_perm = cpu_to_le16(acl_e->e_perm);
+		struct posix_acl_entry *entry = (struct posix_acl_entry *)acl_entries;
+		entry->e_tag = acl_e->e_tag;
+		entry->e_perm = acl_e->e_perm;
 		switch(acl_e->e_tag) {
 			case ACL_USER:
 				entry->e_uid = acl_e->e_uid;
-				acl_entries += sizeof(ux_acl_entry);
+				acl_entries += sizeof(struct posix_acl_entry);
 				break;
 			case ACL_GROUP:
 				entry->e_gid = acl_e->e_gid;
-				acl_entries += sizeof(ux_acl_entry);
+				acl_entries += sizeof(struct posix_acl_entry);
 				break;
 
 			case ACL_USER_OBJ:
 			case ACL_GROUP_OBJ:
 			case ACL_MASK:
 			case ACL_OTHER:
-				acl_entries += sizeof(ux_acl_entry);
+				acl_entries += sizeof(struct posix_acl_entry);
 				break;
 
 			default:
