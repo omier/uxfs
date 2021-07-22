@@ -54,12 +54,9 @@ int ux_find_entry(struct inode *dip, char *name)
 struct inode *ux_iget(struct super_block *sb, unsigned long ino)
 {
 	struct buffer_head *bh;
-	struct buffer_head *acl_bh;
 	struct ux_inode *di;
 	struct inode *inode;
-	struct posix_acl *acl, *default_acl;
-	void* default_acl_in_fs;
-	void* access_acl_in_fs;
+	
 	int block;
 
 	pr_debug("uxfs: start %s with inode=%lu\n", __func__, ino);
@@ -92,43 +89,7 @@ struct inode *ux_iget(struct super_block *sb, unsigned long ino)
 	inode->i_mode = di->i_mode;
 	
 	printk("ux_fs: 1");
-	if (!di->i_acl_blk_addr) {
-		printk("ux_fs: 4");
-		di->i_acl_blk_addr = ux_data_alloc(sb);
-
-		printk("ux_fs: 6");
-		inode->i_default_acl = posix_acl_from_mode(inode->i_mode, GFP_KERNEL);
-		printk("ux_fs: 7");
-		inode->i_acl = posix_acl_from_mode(inode->i_mode, GFP_KERNEL);
-	} else {
-		printk("ux_fs: 8");
-		acl_bh = sb_bread(sb, di->i_acl_blk_addr);
-		printk("ux_fs: 9");
-		if (!acl_bh) {
-			printk("ux_fs: 10");
-			pr_debug("Unable to read inode's %lu acl at block %lu\n", ino, di->i_acl_blk_addr);
-			return ERR_PTR(-EIO);
-		}
-
-		printk("ux_fs: 11");
-		default_acl_in_fs = kmalloc(di->i_default_acl_size, GFP_KERNEL);
-		printk("ux_fs: 17");
-		access_acl_in_fs = kmalloc(di->i_access_acl_size, GFP_KERNEL);
-		
-		printk("ux_fs: 12");
-		memcpy(default_acl_in_fs, acl_bh->b_data + UX_DEFAULT_ACL_OFFSET, di->i_default_acl_size);
-		printk("ux_fs: 13");
-		memcpy(access_acl_in_fs, acl_bh->b_data + UX_ACCESS_ACL_OFFSET, di->i_access_acl_size);
-		printk("ux_fs: 14");
-		inode->i_default_acl = ux_acl_from_disk(default_acl_in_fs, di->i_default_acl_size);
-		printk("ux_fs: 15");
-		inode->i_acl = ux_acl_from_disk(access_acl_in_fs, di->i_access_acl_size);
-		printk("ux_fs: 16");
-		brelse(acl_bh);
-		printk("ux_fs: 18");
-	}
 	
-	printk("ux_fs: 3");
 	if (di->i_mode & S_IFDIR) {
 		inode->i_mode |= S_IFDIR;
 		inode->i_op = &ux_dir_inops;
@@ -216,14 +177,14 @@ int ux_write_inode(struct inode *inode, struct writeback_control *wbc)
 		if (inode->i_default_acl) {
 			printk("ux_fs: 308");
 			default_acl_in_fs = ux_acl_to_disk(inode->i_default_acl, &uip->i_default_acl_size);
-			printk("ux_fs: 309");
+			printk("ux_fs: 309, size: %d", uip->i_default_acl_size);
 			memcpy(acl_bh->b_data + UX_DEFAULT_ACL_OFFSET, default_acl_in_fs, uip->i_default_acl_size);
 			printk("ux_fs: 311");
 		}
 
 		if (inode->i_acl) {
 			access_acl_in_fs = ux_acl_to_disk(inode->i_acl, &uip->i_access_acl_size);
-			printk("ux_fs: 310");
+			printk("ux_fs: 310, size: %d", uip->i_access_acl_size);
 			memcpy(acl_bh->b_data + UX_ACCESS_ACL_OFFSET, access_acl_in_fs, uip->i_access_acl_size);
 			printk("ux_fs: 312");
 		}

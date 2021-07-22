@@ -155,9 +155,16 @@ const struct file_operations ux_dir_operations = {
 
 int ux_create(struct inode *dip, struct dentry *dentry, umode_t mode, bool excl)
 {
+	printk("ux_create: 1");
 	struct super_block *sb = dip->i_sb;
+	printk("ux_create: 2");
 	struct ux_inode *nip;
+	printk("ux_create: 3");
 	struct inode *inode;
+	struct posix_acl *acl, *default_acl;
+	void* default_acl_in_fs;
+	void* access_acl_in_fs;
+	struct buffer_head *acl_bh;
 	ino_t inum;
 	int error;
 
@@ -166,23 +173,35 @@ int ux_create(struct inode *dip, struct dentry *dentry, umode_t mode, bool excl)
 	 * disk inode, and incore inode. The add the new
 	 * entry to the directory.
 	 */
-
+	printk("ux_create: 4");
 	inum = ux_find_entry(dip, (char *)dentry->d_name.name);
-	if (inum)
+	printk("ux_create: 5");
+	if (inum) {
+		printk("ux_create: 6");
 		return -EEXIST;
+	}
 
+	printk("ux_create: 7");
 	inode = new_inode(sb);
-	if (!inode)
-		return -ENOSPC;
-
-	inum = ux_inode_alloc(sb);
-	if (!inum) {
-		iput(inode);
+	printk("ux_create: 8");
+	if (!inode) {
+		printk("ux_create: 9");
 		return -ENOSPC;
 	}
 
-	ux_diradd(dip, (char *)dentry->d_name.name, inum);
+	printk("ux_create: 10");
+	inum = ux_inode_alloc(sb);
+	printk("ux_create: 11");
+	if (!inum) {
+		printk("ux_create: 12");
+		iput(inode);
+		printk("ux_create: 13");
+		return -ENOSPC;
+	}
 
+	printk("ux_create: 14");
+	ux_diradd(dip, (char *)dentry->d_name.name, inum);
+	printk("ux_create: 15");
 	set_nlink(inode, 1);
 	inode->i_size = 0;
 	inode->i_blocks = 0;
@@ -197,8 +216,10 @@ int ux_create(struct inode *dip, struct dentry *dentry, umode_t mode, bool excl)
 	inode->i_mapping->a_ops = &ux_aops;
 	inode->i_mode = mode | S_IFREG;
 	inode->i_ino = inum;
+	printk("ux_create: 16");
 	inode->i_private = kmalloc(sizeof(struct ux_inode), GFP_KERNEL);
 
+	printk("ux_create: 17");
 	nip = (struct ux_inode *)inode->i_private;
 	nip->i_mode = mode | S_IFREG;
 	nip->i_nlink = 1;
@@ -207,13 +228,54 @@ int ux_create(struct inode *dip, struct dentry *dentry, umode_t mode, bool excl)
 	nip->i_gid = __kgid_val(inode->i_gid);
 	nip->i_size = 0;
 	nip->i_blocks = 0;
+	printk("ux_create: 18");
 	memset(nip->i_addr, 0, UX_DIRECT_BLOCKS * sizeof(nip->i_addr[0]));
 
+	if (!nip->i_acl_blk_addr) {
+		printk("ux_fs: 4");
+		nip->i_acl_blk_addr = ux_data_alloc(sb);
+
+		printk("ux_fs: 6");
+		inode->i_default_acl = posix_acl_from_mode(inode->i_mode, GFP_KERNEL);
+		printk("ux_fs: 7");
+		inode->i_acl = posix_acl_from_mode(inode->i_mode, GFP_KERNEL);
+	} else {
+		printk("ux_fs: 8");
+		acl_bh = sb_bread(sb, nip->i_acl_blk_addr);
+		printk("ux_fs: 9");
+		if (!acl_bh) {
+			printk("ux_fs: 10");
+			pr_debug("Unable to read inode's %lu acl at block %lu\n", inum, nip->i_acl_blk_addr);
+			return ERR_PTR(-EIO);
+		}
+
+		printk("ux_fs: 11");
+		default_acl_in_fs = kmalloc(nip->i_default_acl_size, GFP_KERNEL);
+		printk("ux_fs: 17");
+		access_acl_in_fs = kmalloc(nip->i_access_acl_size, GFP_KERNEL);
+		
+		printk("ux_fs: 12");
+		memcpy(default_acl_in_fs, acl_bh->b_data + UX_DEFAULT_ACL_OFFSET, nip->i_default_acl_size);
+		printk("ux_fs: 13, size: %d", nip->i_default_acl_size);
+		memcpy(access_acl_in_fs, acl_bh->b_data + UX_ACCESS_ACL_OFFSET, nip->i_access_acl_size);
+		printk("ux_fs: 14, size: %d", nip->i_access_acl_size);
+		inode->i_default_acl = ux_acl_from_disk(default_acl_in_fs, nip->i_default_acl_size);
+		printk("ux_fs: 15, count: %d", inode->i_default_acl->a_count);
+		inode->i_acl = ux_acl_from_disk(access_acl_in_fs, nip->i_access_acl_size);
+		printk("ux_fs: 16, count: %d", inode->i_acl->a_count);
+		brelse(acl_bh);
+		printk("ux_fs: 18");
+	}
+
+	printk("ux_create: 19");
 	error = ux_init_acl(dip, inode);
+	printk("ux_create: 20");
 	if (error) {
+		printk("ux_create: 21");
 		return error;
 	}
 
+	printk("ux_create: 22");
 	insert_inode_hash(inode);
 	d_instantiate(dentry, inode);
 	mark_inode_dirty(inode);
