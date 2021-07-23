@@ -239,36 +239,10 @@ int ux_create(struct inode *dip, struct dentry *dentry, umode_t mode, bool excl)
 		inode->i_default_acl = posix_acl_from_mode(inode->i_mode, GFP_KERNEL);
 		printk("ux_fs: 7");
 		inode->i_acl = posix_acl_from_mode(inode->i_mode, GFP_KERNEL);
-	} else {
-		printk("ux_fs: 8");
-		acl_bh = sb_bread(sb, nip->i_acl_blk_addr);
-		printk("ux_fs: 9");
-		if (!acl_bh) {
-			printk("ux_fs: 10");
-			pr_debug("Unable to read inode's %lu acl at block %lu\n", inum, nip->i_acl_blk_addr);
-			return ERR_PTR(-EIO);
-		}
-
-		printk("ux_fs: 11");
-		default_acl_in_fs = kmalloc(nip->i_default_acl_size, GFP_KERNEL);
-		printk("ux_fs: 17");
-		access_acl_in_fs = kmalloc(nip->i_access_acl_size, GFP_KERNEL);
-		
-		printk("ux_fs: 12");
-		memcpy(default_acl_in_fs, acl_bh->b_data + UX_DEFAULT_ACL_OFFSET, nip->i_default_acl_size);
-		printk("ux_fs: 13, size: %d", nip->i_default_acl_size);
-		memcpy(access_acl_in_fs, acl_bh->b_data + UX_ACCESS_ACL_OFFSET, nip->i_access_acl_size);
-		printk("ux_fs: 14, size: %d", nip->i_access_acl_size);
-		inode->i_default_acl = ux_acl_from_disk(default_acl_in_fs, nip->i_default_acl_size);
-		printk("ux_fs: 15, count: %d", inode->i_default_acl->a_count);
-		inode->i_acl = ux_acl_from_disk(access_acl_in_fs, nip->i_access_acl_size);
-		printk("ux_fs: 16, count: %d", inode->i_acl->a_count);
-		brelse(acl_bh);
-		printk("ux_fs: 18");
 	}
 
 	printk("ux_create: 19");
-	error = ux_init_acl(dip, inode);
+	error = ux_init_acl(inode, dip);
 	printk("ux_create: 20");
 	if (error) {
 		printk("ux_create: 21");
@@ -297,7 +271,6 @@ int ux_mkdir(struct inode *dip, struct dentry *dentry, umode_t mode)
 	struct inode *inode;
 	ino_t inum;
 	int blk;
-	int acl_blk_num;
 	int error;
 
 	/*
@@ -319,12 +292,6 @@ int ux_mkdir(struct inode *dip, struct dentry *dentry, umode_t mode)
 		return -ENOSPC;
 	}
 
-	acl_blk_num = ux_data_alloc(sb);
-	if (!acl_blk_num) {
-		iput(inode);
-		return -ENOSPC;
-	}
-
 	ux_diradd(dip, (char *)dentry->d_name.name, inum);
 
 	set_nlink(inode, 2);
@@ -341,8 +308,6 @@ int ux_mkdir(struct inode *dip, struct dentry *dentry, umode_t mode)
 	inode->i_mapping->a_ops = &ux_aops;
 	inode->i_mode = mode | S_IFDIR;
 	inode->i_ino = inum;
-	inode->i_acl = posix_acl_from_mode(inode->i_mode, GFP_KERNEL);
-	inode->i_default_acl = posix_acl_from_mode(inode->i_mode, GFP_KERNEL);
 	inode->i_private = kmalloc(sizeof(struct ux_inode), GFP_KERNEL);
 
 	nip = (struct ux_inode *)inode->i_private;
@@ -355,13 +320,26 @@ int ux_mkdir(struct inode *dip, struct dentry *dentry, umode_t mode)
 		      __kgid_val(dip->i_gid) : __kgid_val(current_fsgid());
 	nip->i_size = 512;
 	nip->i_blocks = 1;
-	nip->i_acl_blk_addr = acl_blk_num;
 	memset(nip->i_addr, 0, UX_DIRECT_BLOCKS * sizeof(nip->i_addr[0]));
-
+	
 	blk = ux_data_alloc(sb);
 	nip->i_addr[0] = blk;
-	error = ux_init_acl(dip, inode);
+
+	if (!nip->i_acl_blk_addr) {
+		printk("ux_mkdir: 4");
+		nip->i_acl_blk_addr = ux_data_alloc(sb);
+
+		printk("ux_mkdir: 6");
+		inode->i_default_acl = posix_acl_from_mode(inode->i_mode, GFP_KERNEL);
+		printk("ux_mkdir: 7");
+		inode->i_acl = posix_acl_from_mode(inode->i_mode, GFP_KERNEL);
+	}
+
+	printk("ux_mkdir: 19");
+	error = ux_init_acl(inode, dip);
+	printk("ux_mkdir: 20");
 	if (error) {
+		printk("ux_mkdir: 21");
 		return error;
 	}
 	bh = sb_bread(sb, blk);

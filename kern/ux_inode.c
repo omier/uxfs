@@ -56,6 +56,10 @@ struct inode *ux_iget(struct super_block *sb, unsigned long ino)
 	struct buffer_head *bh;
 	struct ux_inode *di;
 	struct inode *inode;
+	struct posix_acl *acl, *default_acl;
+	void* default_acl_in_fs;
+	void* access_acl_in_fs;
+	struct buffer_head *acl_bh;
 	
 	int block;
 
@@ -115,6 +119,42 @@ struct inode *ux_iget(struct super_block *sb, unsigned long ino)
 	inode->i_private = kmalloc(sizeof(struct ux_inode), GFP_KERNEL);
 	memcpy(inode->i_private, di, sizeof(struct ux_inode));
 	brelse(bh);
+
+	if (!di->i_acl_blk_addr) {
+		printk("ux_fs: 4");
+		di->i_acl_blk_addr = ux_data_alloc(sb);
+
+		printk("ux_fs: 6");
+		inode->i_default_acl = posix_acl_from_mode(inode->i_mode, GFP_KERNEL);
+		printk("ux_fs: 7");
+		inode->i_acl = posix_acl_from_mode(inode->i_mode, GFP_KERNEL);
+	} else {
+		printk("ux_fs: 8");
+		acl_bh = sb_bread(sb, di->i_acl_blk_addr);
+		printk("ux_fs: 9");
+		if (!acl_bh) {
+			printk("ux_fs: 10");
+			printk("Unable to read inode's %lu acl at block %lu\n", ino, di->i_acl_blk_addr);
+			return ERR_PTR(-EIO);
+		}
+
+		printk("ux_fs: 11");
+		default_acl_in_fs = kmalloc(di->i_default_acl_size, GFP_KERNEL);
+		printk("ux_fs: 17");
+		access_acl_in_fs = kmalloc(di->i_access_acl_size, GFP_KERNEL);
+		
+		printk("ux_fs: 12");
+		memcpy(default_acl_in_fs, acl_bh->b_data + UX_DEFAULT_ACL_OFFSET, di->i_default_acl_size);
+		printk("ux_fs: 13, size: %d", di->i_default_acl_size);
+		memcpy(access_acl_in_fs, acl_bh->b_data + UX_ACCESS_ACL_OFFSET, di->i_access_acl_size);
+		printk("ux_fs: 14, size: %d", di->i_access_acl_size);
+		inode->i_default_acl = ux_acl_from_disk(default_acl_in_fs, di->i_default_acl_size);
+		printk("ux_fs: 15, count: %d", inode->i_default_acl->a_count);
+		inode->i_acl = ux_acl_from_disk(access_acl_in_fs, di->i_access_acl_size);
+		printk("ux_fs: 16, count: %d", inode->i_acl->a_count);
+		brelse(acl_bh);
+		printk("ux_fs: 18");
+	}
 
 	unlock_new_inode(inode);
 	printk("ux_fs: 2");
@@ -192,6 +232,10 @@ int ux_write_inode(struct inode *inode, struct writeback_control *wbc)
 		mark_buffer_dirty(acl_bh);
 		brelse(acl_bh);
 	}
+
+	// memcpy(bh->b_data, uip, sizeof(struct ux_inode));
+	// mark_buffer_dirty(bh);
+	// brelse(bh);
 	
 	return 0;
 }
