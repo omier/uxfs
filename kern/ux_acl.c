@@ -43,6 +43,7 @@ struct posix_acl* ux_acl_from_disk(const void *value, int size)
 		return ERR_PTR(-ENOMEM);
 	}
 
+	printk("ux_acl_from_disk: 242142, count: %u, refcount: %u", acl->a_count, acl->a_refcount);
 	for (n=0; n < count; n++) {
 		printk("ux_acl_from_disk: 10-%d", n);
 		struct posix_acl_entry *entry = (struct posix_acl_entry *)value;
@@ -51,7 +52,9 @@ struct posix_acl* ux_acl_from_disk(const void *value, int size)
 			printk("ux_acl_from_disk: 12-%d", n);
 			goto fail;
 		}
-		acl->a_entries[n].e_tag  = entry->e_tag;
+
+		printk("ux_acl_from_disk: 6.5-%d {e_gid: %u, e_uid: %u, e_perm: %u, e_tag: %d}", n, entry->e_gid, entry->e_uid, entry->e_perm, entry->e_tag);
+		acl->a_entries[n].e_tag = entry->e_tag;
 		printk("ux_acl_from_disk: 13-%d", n);
 		acl->a_entries[n].e_perm = entry->e_perm;
 		printk("ux_acl_from_disk: 14-%d", n);
@@ -92,6 +95,9 @@ struct posix_acl* ux_acl_from_disk(const void *value, int size)
 			default:
 				goto fail;
 		}
+
+		printk("ux_acl_from_disk: 26, count: %u, refcount: %u", acl->a_count, acl->a_refcount);
+		printk("ux_acl_from_disk: 22.5-%d {e_gid: %u, e_uid: %u, e_perm: %u, e_tag: %d}", n, acl->a_entries[n].e_gid, acl->a_entries[n].e_uid, acl->a_entries[n].e_perm, acl->a_entries[n].e_tag);
 	}
 
 	if (value != end) {
@@ -99,7 +105,8 @@ struct posix_acl* ux_acl_from_disk(const void *value, int size)
 		goto fail;
 	}
 
-	printk("ux_acl_from_disk: 24");
+	printk("ux_acl_from_disk: 24, after - count: %d, size: %d", acl->a_count, ux_acl_size(acl->a_count));
+	printk("ux_acl_from_disk: 24.5, count: %u, refcount: %u", acl->a_count, acl->a_refcount);
 	return acl;
 
 fail:
@@ -120,19 +127,23 @@ void* ux_acl_to_disk(const struct posix_acl *acl, int *size)
 	if (!acl) {
 		printk("ux_acl_to_disk: 11 acl is NULL");
 	}
+	printk("ux_acl_to_disk: 1111, count: %u, refcount: %u", acl->a_count, acl->a_refcount);
 	printk("ux_acl_to_disk: 2 count: %d", acl->a_count);
 	*size = ux_acl_size(acl->a_count);
 	printk("ux_acl_to_disk: 3, size: %d", *size);
 	acl_entries = kmalloc(*size, GFP_KERNEL);
+	char * start_entries = acl_entries;
 	if (!acl_entries) {
 		printk("ux_acl_to_disk: 33 acl_entries is NULL");
 	}
 	printk("ux_acl_to_disk: 4");
 
+	printk("ux_acl_to_disk: 1112, count: %u, refcount: %u", acl->a_count, acl->a_refcount);
 	for (n=0; n < acl->a_count; n++) {
 		printk("ux_acl_to_disk: 5-%d", n);
 		const struct posix_acl_entry *acl_e = &acl->a_entries[n];
 		printk("ux_acl_to_disk: 6-%d, acl_e: %p", n, acl_e);
+		printk("ux_acl_to_disk: 6.5-%d {e_gid: %u, e_uid: %u, e_perm: %u, e_tag: %d}", n, acl_e->e_gid, acl_e->e_uid, acl_e->e_perm, acl_e->e_tag);
 		struct posix_acl_entry *entry = (struct posix_acl_entry *)acl_entries;
 		printk("ux_acl_to_disk: 7-%d, entry: %p", n, entry);
 		entry->e_tag = acl_e->e_tag;
@@ -157,7 +168,11 @@ void* ux_acl_to_disk(const struct posix_acl *acl, int *size)
 			default:
 				goto fail;
 		}
+		printk("ux_acl_to_disk: 8-%d {e_gid: %u, e_uid: %u, e_perm: %u, e_tag: %d}", n, entry->e_gid, entry->e_uid, entry->e_perm, entry->e_tag);
 	}
+
+	printk("ux_acl_to_disk: 9, after - actual size: %d, expected size: %d", acl_entries - start_entries, *size);
+	printk("ux_acl_to_disk: 9.5, count: %u, refcount: %u", acl->a_count, acl->a_refcount);
 	return acl_entries;
 
 fail:
@@ -172,10 +187,12 @@ struct posix_acl* ux_get_acl(struct inode *inode, int type)
 	switch (type) {
 	case ACL_TYPE_ACCESS:
 		printk("ux_get_acl: 2, count: %d", inode->i_acl->a_count);
+		printk("ux_get_acl: 2.5, count: %u, refcount: %u", inode->i_acl->a_count, inode->i_acl->a_refcount);
 		return inode->i_acl;
 		break;
 	case ACL_TYPE_DEFAULT:
 		printk("ux_get_acl: 3, count: %d", inode->i_default_acl->a_count);
+		printk("ux_get_acl: 3.5, count: %u, refcount: %u", inode->i_default_acl->a_count, inode->i_default_acl->a_refcount);
 		return inode->i_default_acl;
 		break;
 	default:
@@ -194,17 +211,21 @@ static int __ux_set_acl(struct inode *inode, struct posix_acl *acl, int type)
 		return -EINVAL;
 	}
 
+	printk("__ux_set_acl: 1.5, count: %u, refcount: %u", acl->a_count, acl->a_refcount);
 	printk("__ux_set_acl: 2");
 	switch(type) {
 		case ACL_TYPE_ACCESS:
 			printk("__ux_set_acl: 3, count: %d", acl->a_count);
 			inode->i_acl = acl;
 			printk("__ux_set_acl: 4");
+			printk("__ux_set_acl: 4.5, count: %u, refcount: %u", acl->a_count, acl->a_refcount);
 			mark_inode_dirty(inode);
+			printk("__ux_set_acl: 4.55, count: %u, refcount: %u", acl->a_count, acl->a_refcount);
 			break;
 
 		case ACL_TYPE_DEFAULT:
 			printk("__ux_set_acl: 5, count: %d", acl->a_count);
+			printk("__ux_set_acl: 5.5, count: %u, refcount: %u", acl->a_count, acl->a_refcount);
 			if (!S_ISDIR(inode->i_mode)) {
 				printk("__ux_set_acl: 6");
 				return acl ? -EACCES : 0;
@@ -212,7 +233,9 @@ static int __ux_set_acl(struct inode *inode, struct posix_acl *acl, int type)
 
 			printk("__ux_set_acl: 7");
 			inode->i_default_acl = acl;
+			printk("__ux_set_acl: 7.5, count: %u, refcount: %u", acl->a_count, acl->a_refcount);
 			mark_inode_dirty(inode);
+			printk("__ux_set_acl: 7.55, count: %u, refcount: %u", acl->a_count, acl->a_refcount);
 			break;
 
 		default:
@@ -221,7 +244,9 @@ static int __ux_set_acl(struct inode *inode, struct posix_acl *acl, int type)
 	}
 
 	printk("__ux_set_acl: 9");
+	printk("__ux_set_acl: 9.5, count: %u, refcount: %u", acl->a_count, acl->a_refcount);
 	set_cached_acl(inode, type, acl);
+	printk("__ux_set_acl: 9.55, count: %u, refcount: %u", acl->a_count, acl->a_refcount);
 	printk("__ux_set_acl: 10");
 	return 0;
 }
@@ -234,9 +259,12 @@ int ux_set_acl(struct inode *inode, struct posix_acl *acl, int type)
 	umode_t mode = inode->i_mode;
 
 	printk("ux_set_acl: 2");
+	printk("ux_set_acl: 2.5, count: %u, refcount: %u", acl->a_count, acl->a_refcount);
 	if (type == ACL_TYPE_ACCESS && acl) {
 		printk("ux_set_acl: 3, mode: %u, count: %d", mode, acl->a_count);
+		printk("ux_set_acl: 3.5, count: %u, refcount: %u", acl->a_count, acl->a_refcount);
 		error = posix_acl_update_mode(inode, &mode, &acl);
+		printk("ux_set_acl: 3.55, count: %u, refcount: %u", acl->a_count, acl->a_refcount);
 		printk("ux_set_acl: 4, mode: %u, count: %d", mode, acl->a_count);
 		if (error) {
 			printk("ux_set_acl: 5");
@@ -248,7 +276,9 @@ int ux_set_acl(struct inode *inode, struct posix_acl *acl, int type)
 	}
 
 	printk("ux_set_acl: 7");
+	printk("ux_set_acl: 7.5, count: %u, refcount: %u", acl->a_count, acl->a_refcount);
 	error = __ux_set_acl(inode, acl, type);
+	printk("ux_set_acl: 7.55, count: %u, refcount: %u", acl->a_count, acl->a_refcount);
 	printk("ux_set_acl: 8");
 	if (!error && update_mode) {
 		printk("ux_set_acl: 9, update_mode: %u", update_mode);
@@ -256,7 +286,9 @@ int ux_set_acl(struct inode *inode, struct posix_acl *acl, int type)
 		printk("ux_set_acl: 10");
 		inode->i_ctime = current_time(inode);
 		printk("ux_set_acl: 11");
+		printk("ux_set_acl: 11.5, count: %u, refcount: %u", acl->a_count, acl->a_refcount);
 		mark_inode_dirty(inode);
+		printk("ux_set_acl: 11.55, count: %u, refcount: %u", acl->a_count, acl->a_refcount);
 		printk("ux_set_acl: 12");
 	}
 
@@ -280,9 +312,13 @@ static struct posix_acl * ux_acl_clone(const struct posix_acl *acl, gfp_t flags)
 			printk("{e_gid: %u, e_uid: %u, e_perm: %u, e_tag: %d}", pa->e_gid, pa->e_uid, pa->e_perm, pa->e_tag);
 			break;
 		}
+		printk("ux_acl_clone: 2.5, count: %u, refcount: %u", acl->a_count, acl->a_refcount);
 		clone = kmemdup(acl, size, flags);
-		if (clone)
+		printk("ux_acl_clone: 3.5, count: %u, refcount: %u", acl->a_count, acl->a_refcount);
+		if (clone) {
 			refcount_set(&clone->a_refcount, 1);
+			printk("ux_acl_clone: 4.5, count: %u, refcount: %u", clone->a_count, clone->a_refcount);
+		}
 	}
 	return clone;
 }
@@ -364,19 +400,28 @@ int ux_acl_create(struct inode *dir, umode_t *mode,
 		return PTR_ERR(p);
 
 	ret = -ENOMEM;
+	printk("ux_acl_clone: 3.5, count: %u, refcount: %u", p->a_count, p->a_refcount);
 	clone = ux_acl_clone(p, GFP_NOFS);
+	printk("ux_acl_clone: 4.5, count: %u, refcount: %u", p->a_count, p->a_refcount);
 	if (!clone)
 		goto err_release;
 
+	printk("ux_acl_clone: 5.5, count: %u, refcount: %u", clone->a_count, clone->a_refcount);
+
 	ret = ux_acl_create_masq(clone, mode);
+	printk("ux_acl_clone: 6.5, count: %u, refcount: %u", p->a_count, p->a_refcount);
+	printk("ux_acl_clone: 7.5, count: %u, refcount: %u", clone->a_count, clone->a_refcount);
 	if (ret < 0)
 		goto err_release_clone;
 
-	if (ret == 0)
+	printk("ux_acl_clone: 9.5, count: %u, refcount: %u", clone->a_count, clone->a_refcount);
+	if (ret == 0) {
 		posix_acl_release(clone);
-	else
+	} else {
 		*acl = clone;
+	}
 
+	printk("ux_acl_clone: 10.5, count: %u, refcount: %u", p->a_count, p->a_refcount);
 	if (!S_ISDIR(*mode))
 		posix_acl_release(p);
 	else
@@ -415,9 +460,13 @@ int ux_init_acl(struct inode *inode, struct inode *dir)
 	printk("ux_init_acl: 4");
 	if (default_acl) {
 		printk("ux_init_acl: 5");
+		printk("ux_init_acl: 5.5, count: %u, refcount: %u", default_acl->a_count, default_acl->a_refcount);
 		error = __ux_set_acl(inode, default_acl, ACL_TYPE_DEFAULT);
+		printk("ux_init_acl: 5.55, count: %u, refcount: %u", default_acl->a_count, default_acl->a_refcount);
 		printk("ux_init_acl: 6");
+		printk("ux_init_acl: 6.5, count: %u, refcount: %u", default_acl->a_count, default_acl->a_refcount);
 		posix_acl_release(default_acl);
+		printk("ux_init_acl: 6.55, count: %u, refcount: %u", default_acl->a_count, default_acl->a_refcount);
 	}
 
 	printk("ux_init_acl: 7");
@@ -425,11 +474,15 @@ int ux_init_acl(struct inode *inode, struct inode *dir)
 		printk("ux_init_acl: 8");
 		if (!error) {
 			printk("ux_init_acl: 9");
+			printk("ux_init_acl: 9.5, count: %u, refcount: %u", acl->a_count, acl->a_refcount);
 			error = __ux_set_acl(inode, acl, ACL_TYPE_ACCESS);
+			printk("ux_init_acl: 9.55, count: %u, refcount: %u", acl->a_count, acl->a_refcount);
 			printk("ux_init_acl: 10");
 		}
 		printk("ux_init_acl: 11");
+		printk("ux_init_acl: 11.5, count: %u, refcount: %u", acl->a_count, acl->a_refcount);
 		posix_acl_release(acl);
+		printk("ux_init_acl: 11.55, count: %u, refcount: %u", acl->a_count, acl->a_refcount);
 		printk("ux_init_acl: 12");
 	}
 
