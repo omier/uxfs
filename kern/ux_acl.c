@@ -117,17 +117,24 @@ void* ux_acl_to_disk(const struct posix_acl *acl, int *size)
 	char *acl_entries;
 	size_t n;
 
+	if (!acl) {
+		printk("ux_acl_to_disk: 11 acl is NULL");
+	}
 	printk("ux_acl_to_disk: 2 count: %d", acl->a_count);
 	*size = ux_acl_size(acl->a_count);
 	printk("ux_acl_to_disk: 3, size: %d", *size);
 	acl_entries = kmalloc(*size, GFP_KERNEL);
+	if (!acl_entries) {
+		printk("ux_acl_to_disk: 33 acl_entries is NULL");
+	}
 	printk("ux_acl_to_disk: 4");
 
 	for (n=0; n < acl->a_count; n++) {
 		printk("ux_acl_to_disk: 5-%d", n);
 		const struct posix_acl_entry *acl_e = &acl->a_entries[n];
-		printk("ux_acl_to_disk: 6-%d", n);
+		printk("ux_acl_to_disk: 6-%d, acl_e: %p", n, acl_e);
 		struct posix_acl_entry *entry = (struct posix_acl_entry *)acl_entries;
+		printk("ux_acl_to_disk: 7-%d, entry: %p", n, entry);
 		entry->e_tag = acl_e->e_tag;
 		entry->e_perm = acl_e->e_perm;
 		switch(acl_e->e_tag) {
@@ -182,12 +189,18 @@ static int __ux_set_acl(struct inode *inode, struct posix_acl *acl, int type)
 	printk("__ux_set_acl: 1");
 	struct ux_inode* uip = (struct ux_inode*)inode->i_private;
 
+	if (!acl) {
+		printk("__ux_set_acl: 1, acl is NULL");
+		return -EINVAL;
+	}
+
 	printk("__ux_set_acl: 2");
 	switch(type) {
 		case ACL_TYPE_ACCESS:
 			printk("__ux_set_acl: 3, count: %d", acl->a_count);
 			inode->i_acl = acl;
 			printk("__ux_set_acl: 4");
+			mark_inode_dirty(inode);
 			break;
 
 		case ACL_TYPE_DEFAULT:
@@ -199,6 +212,7 @@ static int __ux_set_acl(struct inode *inode, struct posix_acl *acl, int type)
 
 			printk("__ux_set_acl: 7");
 			inode->i_default_acl = acl;
+			mark_inode_dirty(inode);
 			break;
 
 		default:
@@ -259,9 +273,9 @@ static struct posix_acl * ux_acl_clone(const struct posix_acl *acl, gfp_t flags)
 
 	if (acl) {
 		int size = ux_acl_size(acl->a_count);
-		struct posix_acl_entry *pa, *pe;
 		printk("size = %d", size);
 		printk("count = %d", acl->a_count);
+		struct posix_acl_entry *pa, *pe;
 		FOREACH_ACL_ENTRY(pa, acl, pe) {
 			printk("{e_gid: %u, e_uid: %u, e_perm: %u, e_tag: %d}", pa->e_gid, pa->e_uid, pa->e_perm, pa->e_tag);
 			break;
@@ -280,6 +294,7 @@ static int ux_acl_create_masq(struct posix_acl *acl, umode_t *mode_p)
 	umode_t mode = *mode_p;
 	int not_equiv = 0;
 
+	printk("ux_acl_create_masq: count: %u, refcount: %u", acl->a_count, acl->a_refcount);
 	/* assert(atomic_read(acl->a_refcount) == 1); */
 
 	FOREACH_ACL_ENTRY(pa, acl, pe) {

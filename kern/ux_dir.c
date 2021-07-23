@@ -37,7 +37,7 @@ int ux_diradd(struct inode *dip, const char *name, int inum)
 				dirent->d_ino = inum;
 				strcpy(dirent->d_name, name);
 				mark_buffer_dirty(bh);
-				mark_inode_dirty(dip);
+				// mark_inode_dirty(dip);
 				brelse(bh);
 				return 0;
 			}
@@ -60,7 +60,7 @@ int ux_diradd(struct inode *dip, const char *name, int inum)
 		uip->i_addr[pos] = blk;
 		bh = sb_bread(sb, blk);
 		memset(bh->b_data, 0, UX_BSIZE);
-		mark_inode_dirty(dip);
+		// mark_inode_dirty(dip);
 		dirent = (struct ux_dirent *)bh->b_data;
 		dirent->d_ino = inum;
 		strcpy(dirent->d_name, name);

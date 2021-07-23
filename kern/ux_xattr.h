@@ -5,30 +5,9 @@
 /* Magic value in attribute blocks */
 #define UX_XATTR_MAGIC		0xEA020000
 
-/* Maximum number of references to one attribute block */
-#define UX_XATTR_REFCOUNT_MAX		1024
-
 /* Name indexes */
 #define UX_XATTR_INDEX_POSIX_ACL_ACCESS		1
 #define UX_XATTR_INDEX_POSIX_ACL_DEFAULT	2
-
-struct ux_xattr_header {
-	__le32	h_magic;	/* magic number for identification */
-	__le32	h_refcount;	/* reference count */
-	__le32	h_blocks;	/* number of disk blocks used */
-	__le32	h_hash;		/* hash value of all attributes */
-	__u32	h_reserved[4];	/* zero right now */
-};
-
-struct ux_xattr_entry {
-	__u8	e_name_len;	/* length of name */
-	__u8	e_name_index;	/* attribute name index */
-	__le16	e_value_offs;	/* offset in disk block of value */
-	__le32	e_value_block;	/* disk block attribute is stored on (n/i) */
-	__le32	e_value_size;	/* size of attribute value */
-	__le32	e_hash;		/* hash value of name and value */
-	char	e_name[];	/* attribute name */
-};
 
 #define UX_XATTR_PAD_BITS		2
 #define UX_XATTR_PAD		(1<<UX_XATTR_PAD_BITS)
