@@ -21,7 +21,7 @@ ino_t ux_inode_alloc(struct super_block *sb)
 	int i;
 	printk("ux_inode_alloc: { s_nifree: %u, s_block: %p, s_inode: %p, s_magic: %u, s_mod: %u, s_nbfree: %u }", usb->s_nifree, usb->s_block, usb->s_inode, usb->s_magic, usb->s_mod, usb->s_nbfree);
 	if (usb->s_nifree == 0) {
-		pr_err("uxfs: Out of inodes\n");
+		printk("uxfs: Out of inodes\n");
 		return 0;
 	}
 
@@ -37,7 +37,7 @@ ino_t ux_inode_alloc(struct super_block *sb)
 		}
 	}
 
-	pr_err("uxfs: %s - We should never reach here\n", __func__);
+	printk("uxfs: %s - We should never reach here\n", __func__);
 	return 0;
 }
 
@@ -53,7 +53,7 @@ __u32 ux_data_alloc(struct super_block *sb)
 	int i;
 
 	if (usb->s_nbfree == 0) {
-		pr_err("uxfs: Out of space\n");
+		printk("uxfs: Out of space\n");
 		return 0;
 	}
 
@@ -71,6 +71,6 @@ __u32 ux_data_alloc(struct super_block *sb)
 		}
 	}
 
-	pr_err("uxfs: %s - We should never reach here\n", __func__);
+	printk("uxfs: %s - We should never reach here\n", __func__);
 	return 0;
 }
