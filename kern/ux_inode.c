@@ -176,6 +176,7 @@ int ux_write_inode(struct inode *inode, struct writeback_control *wbc)
 	struct buffer_head* acl_bh;
 	void* default_acl_in_fs;
 	void* access_acl_in_fs;
+	int error = 0;
 
 	struct ux_fs *fs = (struct ux_fs *)inode->i_sb->s_fs_info;
 	struct ux_superblock *usb = fs->u_sb;
@@ -214,7 +215,7 @@ int ux_write_inode(struct inode *inode, struct writeback_control *wbc)
 	printk("uxfs: %s <brelse>: super block { s_nifree: %u, s_block: %p, s_inode: %p, s_magic: %u, s_mod: %u, s_nbfree: %u }",
 	__func__, usb->s_nifree, usb->s_block, usb->s_inode, usb->s_magic, usb->s_mod, usb->s_nbfree);
 	if (inode->i_acl || inode->i_default_acl) {
-		printk("ux_fs: 306");
+		printk("ux_fs: 306: i_acl: %p, i_default_acl: %p", inode->i_acl, inode->i_default_acl);
 		acl_bh = sb_bread(inode->i_sb, uip->i_acl_blk_addr);
 		printk("ux_fs: inode %lu acl at block %lu", ino, uip->i_acl_blk_addr);
 		if (!acl_bh) {
@@ -223,26 +224,54 @@ int ux_write_inode(struct inode *inode, struct writeback_control *wbc)
 			return ERR_PTR(-EIO);
 		}
 		if (inode->i_default_acl) {
-			printk("ux_fs: 308");
-			default_acl_in_fs = ux_acl_to_disk(inode->i_default_acl, &uip->i_default_acl_size);
-			printk("uxfs: %s <ux_acl_to_disk default>: super block { s_nifree: %u, s_block: %p, s_inode: %p, s_magic: %u, s_mod: %u, s_nbfree: %u }",
-	__func__, usb->s_nifree, usb->s_block, usb->s_inode, usb->s_magic, usb->s_mod, usb->s_nbfree);
-			printk("ux_fs: 309, size: %d", uip->i_default_acl_size);
-			memcpy(acl_bh->b_data + UX_DEFAULT_ACL_OFFSET, default_acl_in_fs, uip->i_default_acl_size);
-			printk("uxfs: %s <ux_acl_to_disk default after memcpy>: super block { s_nifree: %u, s_block: %p, s_inode: %p, s_magic: %u, s_mod: %u, s_nbfree: %u }",
-	__func__, usb->s_nifree, usb->s_block, usb->s_inode, usb->s_magic, usb->s_mod, usb->s_nbfree);
-			printk("ux_fs: 311");
+			error = posix_acl_valid(inode->i_sb->s_user_ns, inode->i_default_acl);
+			if (error) {
+				printk("ux_write_inode: default_acl is invalid, count: %u, refcount: %u, error: %d", inode->i_default_acl->a_count, inode->i_default_acl->a_refcount, error);
+				// return error;
+			} else {
+				printk("count = %d", inode->i_default_acl->a_count);
+				struct posix_acl_entry *pa, *pe;
+				FOREACH_ACL_ENTRY(pa, inode->i_default_acl, pe) {
+					printk("default_acl: {e_gid: %u, e_uid: %u, e_perm: %u, e_tag: %d}", pa->e_gid, pa->e_uid, pa->e_perm, pa->e_tag);
+					break;
+				}
+
+				printk("ux_fs: 308, count: %u, refcount: %u", inode->i_default_acl->a_count, inode->i_default_acl->a_refcount);
+				default_acl_in_fs = ux_acl_to_disk(inode->i_default_acl, &uip->i_default_acl_size);
+        printk("uxfs: %s <ux_acl_to_disk default>: super block { s_nifree: %u, s_block: %p, s_inode: %p, s_magic: %u, s_mod: %u, s_nbfree: %u }",
+					__func__, usb->s_nifree, usb->s_block, usb->s_inode, usb->s_magic, usb->s_mod, usb->s_nbfree);
+        printk("ux_fs: 309, size: %d", uip->i_default_acl_size);
+				memcpy(acl_bh->b_data + UX_DEFAULT_ACL_OFFSET, default_acl_in_fs, uip->i_default_acl_size);
+        printk("uxfs: %s <ux_acl_to_disk default after memcpy>: super block { s_nifree: %u, s_block: %p, s_inode: %p, s_magic: %u, s_mod: %u, s_nbfree: %u }",
+					__func__, usb->s_nifree, usb->s_block, usb->s_inode, usb->s_magic, usb->s_mod, usb->s_nbfree);
+        printk("ux_fs: 311");
+			}
 		}
 
+		error = 0;
 		if (inode->i_acl) {
-			access_acl_in_fs = ux_acl_to_disk(inode->i_acl, &uip->i_access_acl_size);
-			printk("ux_fs: 310, size: %d", uip->i_access_acl_size);
-			printk("uxfs: %s <ux_acl_to_disk regular>: super block { s_nifree: %u, s_block: %p, s_inode: %p, s_magic: %u, s_mod: %u, s_nbfree: %u }",
+			error = posix_acl_valid(inode->i_sb->s_user_ns, inode->i_acl);
+			if (error) {
+				printk("ux_write_inode: access_acl is invalid, count: %u, refcount: %u, error: %d", inode->i_acl->a_count, inode->i_acl->a_refcount, error);
+				// return error;
+			} else {
+				printk("count = %d", inode->i_acl->a_count);
+				struct posix_acl_entry *pa, *pe;
+				FOREACH_ACL_ENTRY(pa, inode->i_acl, pe) {
+					printk("access_acl: {e_gid: %u, e_uid: %u, e_perm: %u, e_tag: %d}", pa->e_gid, pa->e_uid, pa->e_perm, pa->e_tag);
+					break;
+				}
+
+				printk("ux_fs: 308, count: %u, refcount: %u", inode->i_acl->a_count, inode->i_acl->a_refcount);
+				access_acl_in_fs = ux_acl_to_disk(inode->i_acl, &uip->i_access_acl_size);
+				printk("ux_fs: 310, size: %d", uip->i_access_acl_size);
+        printk("uxfs: %s <ux_acl_to_disk regular>: super block { s_nifree: %u, s_block: %p, s_inode: %p, s_magic: %u, s_mod: %u, s_nbfree: %u }",
 	__func__, usb->s_nifree, usb->s_block, usb->s_inode, usb->s_magic, usb->s_mod, usb->s_nbfree);
-			memcpy(acl_bh->b_data + UX_ACCESS_ACL_OFFSET, access_acl_in_fs, uip->i_access_acl_size);
-			printk("uxfs: %s <ux_acl_to_disk regular after memcpy>: super block { s_nifree: %u, s_block: %p, s_inode: %p, s_magic: %u, s_mod: %u, s_nbfree: %u }",
+				memcpy(acl_bh->b_data + UX_ACCESS_ACL_OFFSET, access_acl_in_fs, uip->i_access_acl_size);
+        printk("uxfs: %s <ux_acl_to_disk regular after memcpy>: super block { s_nifree: %u, s_block: %p, s_inode: %p, s_magic: %u, s_mod: %u, s_nbfree: %u }",
 	__func__, usb->s_nifree, usb->s_block, usb->s_inode, usb->s_magic, usb->s_mod, usb->s_nbfree);
-			printk("ux_fs: 312");
+				printk("ux_fs: 312");
+			}
 		}
 
 		mark_buffer_dirty(acl_bh);
