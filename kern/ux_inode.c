@@ -208,12 +208,7 @@ int ux_write_inode(struct inode *inode, struct writeback_control *wbc)
 	uip->i_gid = __kgid_val(inode->i_gid);
 	uip->i_size = inode->i_size;
 	uip->i_blocks = inode->i_blocks;
-	memcpy(bh->b_data, uip, sizeof(struct ux_inode));
-	mark_buffer_dirty(bh);
-	brelse(bh);
 
-	printk("uxfs: %s <brelse>: super block { s_nifree: %u, s_block: %p, s_inode: %p, s_magic: %u, s_mod: %u, s_nbfree: %u }",
-	__func__, usb->s_nifree, usb->s_block, usb->s_inode, usb->s_magic, usb->s_mod, usb->s_nbfree);
 	if (inode->i_acl || inode->i_default_acl) {
 		printk("ux_fs: 306: i_acl: %p, i_default_acl: %p", inode->i_acl, inode->i_default_acl);
 		acl_bh = sb_bread(inode->i_sb, uip->i_acl_blk_addr);
@@ -278,12 +273,12 @@ int ux_write_inode(struct inode *inode, struct writeback_control *wbc)
 		brelse(acl_bh);
 	}
 
-	// memcpy(bh->b_data, uip, sizeof(struct ux_inode));
-	// mark_buffer_dirty(bh);
-	// brelse(bh);
 	printk("uxfs: after %s: super block { s_nifree: %u, s_block: %p, s_inode: %p, s_magic: %u, s_mod: %u, s_nbfree: %u }",
 	__func__, usb->s_nifree, usb->s_block, usb->s_inode, usb->s_magic, usb->s_mod, usb->s_nbfree);
-	
+	memcpy(bh->b_data, uip, sizeof(struct ux_inode));
+	mark_buffer_dirty(bh);
+	brelse(bh);
+
 	return 0;
 }
 
