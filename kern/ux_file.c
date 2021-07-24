@@ -23,7 +23,7 @@ int ux_get_block(struct inode *inode, sector_t block,
 	struct ux_inode *uip = (struct ux_inode *)inode->i_private;
 	__u32 blk, acl_blk_num;
 
-	pr_debug("uxfs: start %s with inode=%lu block=%lu create=%d\n",
+	printk("uxfs: start %s with inode=%lu block=%lu create=%d\n",
 		__func__, inode->i_ino, (long unsigned int)block, create);
 
 	/*
@@ -40,7 +40,7 @@ int ux_get_block(struct inode *inode, sector_t block,
 	if (create) {
 		blk = ux_data_alloc(sb);
 		if (blk == 0) {
-			pr_err("uxfs: %s - Out of space\n", __func__);
+			printk("uxfs: %s - Out of space\n", __func__);
 			return -ENOSPC;
 		}
 
@@ -66,14 +66,14 @@ int ux_get_block(struct inode *inode, sector_t block,
 
 int ux_writepage(struct page *page, struct writeback_control *wbc)
 {
-	pr_debug("uxfs: start %s\n", __func__);
+	printk("uxfs: start %s\n", __func__);
 
 	return block_write_full_page(page, ux_get_block, wbc);
 }
 
 int ux_readpage(struct file *file, struct page *page)
 {
-	pr_debug("uxfs: start %s with inode=%lu\n",
+	printk("uxfs: start %s with inode=%lu\n",
 		__func__, file->f_inode->i_ino);
 
 	return block_read_full_page(page, ux_get_block);
@@ -83,7 +83,7 @@ int ux_write_begin(struct file *file, struct address_space *mapping,
 			loff_t pos, unsigned int len, unsigned int flags,
 			struct page **pagep, void **fsdata)
 {
-	pr_debug("uxfs: start %s with inode=%lu pos=%lld len=%d\n",
+	printk("uxfs: start %s with inode=%lu pos=%lld len=%d\n",
 		__func__, file->f_inode->i_ino, pos, len);
 
 	return block_write_begin(mapping, pos, len, flags, pagep, ux_get_block);
@@ -91,7 +91,7 @@ int ux_write_begin(struct file *file, struct address_space *mapping,
 
 sector_t ux_bmap(struct address_space *mapping, sector_t block)
 {
-	pr_debug("uxfs: start %s with inode=%lu block=%lu\n",
+	printk("uxfs: start %s with inode=%lu block=%lu\n",
 		__func__, mapping->host->i_ino, (long unsigned int)block);
 
 	return generic_block_bmap(mapping, block, ux_get_block);
