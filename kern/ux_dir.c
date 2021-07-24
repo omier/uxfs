@@ -37,11 +37,11 @@ int ux_diradd(struct inode *dip, const char *name, int inum)
 				dirent->d_ino = inum;
 				strcpy(dirent->d_name, name);
 				mark_buffer_dirty(bh);
-				// mark_inode_dirty(dip);
 				brelse(bh);
 				return 0;
 			}
 		}
+		
 		brelse(bh);
 	}
 
@@ -60,7 +60,6 @@ int ux_diradd(struct inode *dip, const char *name, int inum)
 		uip->i_addr[pos] = blk;
 		bh = sb_bread(sb, blk);
 		memset(bh->b_data, 0, UX_BSIZE);
-		// mark_inode_dirty(dip);
 		dirent = (struct ux_dirent *)bh->b_data;
 		dirent->d_ino = inum;
 		strcpy(dirent->d_name, name);
@@ -100,6 +99,7 @@ int ux_dirdel(struct inode *dip, char *name)
 
 			dirent++;
 		}
+
 		brelse(bh);
 	}
 
@@ -117,8 +117,10 @@ int ux_readdir(struct file *filp, struct dir_context *ctx)
 
 start_again:
 	pos = ctx->pos;
-	if (pos >= inode->i_size)
+	if (pos >= inode->i_size) {
 		return 0;
+	}
+
 	blk = (pos + 1) / UX_BSIZE;
 	blk = uip->i_addr[blk];
 	bh = sb_bread(inode->i_sb, blk);
@@ -136,6 +138,7 @@ start_again:
 		dir_emit(ctx, udir->d_name, sizeof(udir->d_name),
 			udir->d_ino, DT_UNKNOWN);
 	}
+
 	ctx->pos += sizeof(struct ux_dirent);
 	brelse(bh);
 	return 0;
@@ -155,11 +158,8 @@ const struct file_operations ux_dir_operations = {
 
 int ux_create(struct inode *dip, struct dentry *dentry, umode_t mode, bool excl)
 {
-	printk("ux_create: 1");
 	struct super_block *sb = dip->i_sb;
-	printk("ux_create: 2");
 	struct ux_inode *nip;
-	printk("ux_create: 3");
 	struct inode *inode;
 	ino_t inum;
 	int error;
@@ -169,35 +169,24 @@ int ux_create(struct inode *dip, struct dentry *dentry, umode_t mode, bool excl)
 	 * disk inode, and incore inode. The add the new
 	 * entry to the directory.
 	 */
-	printk("ux_create: 4");
+	
 	inum = ux_find_entry(dip, (char *)dentry->d_name.name);
-	printk("ux_create: 5");
 	if (inum) {
-		printk("ux_create: 6");
 		return -EEXIST;
 	}
 
-	printk("ux_create: 7");
 	inode = new_inode(sb);
-	printk("ux_create: 8");
 	if (!inode) {
-		printk("ux_create: 9");
 		return -ENOSPC;
 	}
 
-	printk("ux_create: 10");
 	inum = ux_inode_alloc(sb);
-	printk("ux_create: 11");
 	if (!inum) {
-		printk("ux_create: 12");
 		iput(inode);
-		printk("ux_create: 13");
 		return -ENOSPC;
 	}
 
-	printk("ux_create: 14");
 	ux_diradd(dip, (char *)dentry->d_name.name, inum);
-	printk("ux_create: 15");
 	set_nlink(inode, 1);
 	inode->i_size = 0;
 	inode->i_blocks = 0;
@@ -212,10 +201,9 @@ int ux_create(struct inode *dip, struct dentry *dentry, umode_t mode, bool excl)
 	inode->i_mapping->a_ops = &ux_aops;
 	inode->i_mode = mode | S_IFREG;
 	inode->i_ino = inum;
-	printk("ux_create: 16");
+	
 	inode->i_private = kmalloc(sizeof(struct ux_inode), GFP_KERNEL);
-
-	printk("ux_create: 17");
+	
 	nip = (struct ux_inode *)inode->i_private;
 	nip->i_mode = mode | S_IFREG;
 	nip->i_nlink = 1;
@@ -224,28 +212,19 @@ int ux_create(struct inode *dip, struct dentry *dentry, umode_t mode, bool excl)
 	nip->i_gid = __kgid_val(inode->i_gid);
 	nip->i_size = 0;
 	nip->i_blocks = 0;
-	printk("ux_create: 18");
+	
 	memset(nip->i_addr, 0, UX_DIRECT_BLOCKS * sizeof(nip->i_addr[0]));
-
 	if (!nip->i_acl_blk_addr) {
-		printk("ux_fs: 4");
 		nip->i_acl_blk_addr = ux_data_alloc(sb);
-
-		printk("ux_fs: 6");
 		inode->i_default_acl = posix_acl_from_mode(inode->i_mode, GFP_KERNEL);
-		printk("ux_fs: 7");
 		inode->i_acl = posix_acl_from_mode(inode->i_mode, GFP_KERNEL);
 	}
 
-	printk("ux_create: 19");
 	error = ux_init_acl(inode, dip);
-	printk("ux_create: 20");
 	if (error) {
-		printk("ux_create: 21");
 		return error;
 	}
 
-	printk("ux_create: 22");
 	insert_inode_hash(inode);
 	d_instantiate(dentry, inode);
 	mark_inode_dirty(inode);
@@ -275,12 +254,14 @@ int ux_mkdir(struct inode *dip, struct dentry *dentry, umode_t mode)
 	 */
 
 	inum = ux_find_entry(dip, (char *)dentry->d_name.name);
-	if (inum)
+	if (inum) {
 		return -EEXIST;
+	}
 
 	inode = new_inode(sb);
-	if (!inode)
+	if (!inode) {
 		return -ENOSPC;
+	}
 
 	inum = ux_inode_alloc(sb);
 	if (!inum) {
@@ -289,7 +270,6 @@ int ux_mkdir(struct inode *dip, struct dentry *dentry, umode_t mode)
 	}
 
 	ux_diradd(dip, (char *)dentry->d_name.name, inum);
-
 	set_nlink(inode, 2);
 	inode->i_size = UX_BSIZE;
 	inode->i_blocks = 1;
@@ -320,24 +300,17 @@ int ux_mkdir(struct inode *dip, struct dentry *dentry, umode_t mode)
 	
 	blk = ux_data_alloc(sb);
 	nip->i_addr[0] = blk;
-
 	if (!nip->i_acl_blk_addr) {
-		printk("ux_mkdir: 4");
 		nip->i_acl_blk_addr = ux_data_alloc(sb);
-
-		printk("ux_mkdir: 6");
 		inode->i_default_acl = posix_acl_from_mode(inode->i_mode, GFP_KERNEL);
-		printk("ux_mkdir: 7");
 		inode->i_acl = posix_acl_from_mode(inode->i_mode, GFP_KERNEL);
 	}
 
-	printk("ux_mkdir: 19");
 	error = ux_init_acl(inode, dip);
-	printk("ux_mkdir: 20");
 	if (error) {
-		printk("ux_mkdir: 21");
 		return error;
 	}
+
 	bh = sb_bread(sb, blk);
 	memset(bh->b_data, 0, UX_BSIZE);
 	dirent = (struct ux_dirent *)bh->b_data;
@@ -370,16 +343,19 @@ int ux_rmdir(struct inode *dip, struct dentry *dentry)
 	struct inode *inode = dentry->d_inode;
 	int inum;
 
-	if (inode->i_nlink > 2)
+	if (inode->i_nlink > 2) {
 		return -ENOTEMPTY;
+	}
 
 	/*
 	 * Remove the entry from the parent directory
 	 */
 
 	inum = ux_dirdel(dip, (char *)dentry->d_name.name);
-	if (!inum)
+	if (!inum) {
 		return -ENOTDIR;
+	}
+
 	inode_dec_link_count(dip);
 
 	/*
@@ -402,14 +378,16 @@ struct dentry *ux_lookup(struct inode *dip, struct dentry *dentry,
 	struct inode *inode = NULL;
 	int inum;
 
-	if (dentry->d_name.len > UX_NAMELEN)
+	if (dentry->d_name.len > UX_NAMELEN) {
 		return ERR_PTR(-ENAMETOOLONG);
+	}
 
 	inum = ux_find_entry(dip, (char *)dentry->d_name.name);
 	if (inum) {
 		inode = ux_iget(dip->i_sb, inum);
-		if (IS_ERR(inode))
+		if (IS_ERR(inode)) {
 			return ERR_PTR(PTR_ERR(inode));
+		}
 	}
 
 	d_add(dentry, inode);
@@ -428,17 +406,16 @@ int ux_link(struct dentry *old, struct inode *dip, struct dentry *new)
 	/*
 	 * Add the new file (new) to its parent directory (dip)
 	 */
-
 	error = ux_diradd(dip, new->d_name.name, inode->i_ino);
 
 	/*
 	 * Increment the link count of the target inode
 	 */
-
 	inode_inc_link_count(inode);
 	mark_inode_dirty(inode);
 	atomic_inc(&inode->i_count);
 	d_instantiate(new, inode);
+
 	return 0;
 }
 
@@ -452,6 +429,7 @@ int ux_unlink(struct inode *dip, struct dentry *dentry)
 
 	ux_dirdel(dip, (char *)dentry->d_name.name);
 	inode_dec_link_count(inode);
+	
 	return 0;
 }
 
