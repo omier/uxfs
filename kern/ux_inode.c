@@ -56,7 +56,6 @@ struct inode *ux_iget(struct super_block *sb, unsigned long ino)
 	struct buffer_head *bh;
 	struct ux_inode *di;
 	struct inode *inode;
-	struct posix_acl *acl, *default_acl;
 	void* default_acl_in_fs;
 	void* access_acl_in_fs;
 	struct buffer_head *acl_bh;

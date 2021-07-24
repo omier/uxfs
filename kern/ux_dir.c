@@ -161,10 +161,6 @@ int ux_create(struct inode *dip, struct dentry *dentry, umode_t mode, bool excl)
 	struct ux_inode *nip;
 	printk("ux_create: 3");
 	struct inode *inode;
-	struct posix_acl *acl, *default_acl;
-	void* default_acl_in_fs;
-	void* access_acl_in_fs;
-	struct buffer_head *acl_bh;
 	ino_t inum;
 	int error;
 
