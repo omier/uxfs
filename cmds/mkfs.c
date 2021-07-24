@@ -17,41 +17,6 @@
 #include "../kern/ux_fs.h"
 #include "../kern/ux_acl.h"
 
-// /*
-//  * Allocate a new ACL with the specified number of entries.
-//  */
-// struct posix_acl* ux_posix_acl_alloc(int count)
-// {
-// 	const size_t size = sizeof(struct posix_acl) + count * sizeof(struct posix_acl_entry);
-// 	struct posix_acl *acl = malloc(size);
-// 	if (acl) {
-// 		atomic_set(&acl->a_refcount, 1);
-// 	        acl->a_count = count;
-//         }
-// 	return acl;
-// }
-
-// /*
-//  * Create an ACL representing the file mode permission bits of an inode.
-//  */
-// struct posix_acl* ux_posix_acl_from_mode(unsigned short mode)
-// {
-// 	struct posix_acl *acl = ux_posix_acl_alloc(3);
-// 	if (!acl) {
-// 	   return NULL;
-//         }
-
-// 	acl->a_entries[0].e_tag  = ACL_USER_OBJ;
-// 	acl->a_entries[0].e_perm = (mode & S_IRWXU) >> 6;
-
-// 	acl->a_entries[1].e_tag  = ACL_GROUP_OBJ;
-// 	acl->a_entries[1].e_perm = (mode & S_IRWXG) >> 3;
-
-// 	acl->a_entries[2].e_tag  = ACL_OTHER;
-// 	acl->a_entries[2].e_perm = (mode & S_IRWXO);
-// 	return acl;
-// }
-
 int main(int argc, char **argv)
 {
         struct ux_dirent        dir;
@@ -119,8 +84,6 @@ int main(int argc, char **argv)
 
         sb.s_block[0] = UX_BLOCK_INUSE;
         sb.s_block[1] = UX_BLOCK_INUSE;
-        // sb.s_block[2] = UX_BLOCK_INUSE;
-        // sb.s_block[3] = UX_BLOCK_INUSE;
 
         /*
          * The rest of the blocks are marked unused
@@ -149,14 +112,9 @@ int main(int argc, char **argv)
         inode.i_size = UX_BSIZE;
         inode.i_blocks = 1;
         inode.i_addr[0] = UX_FIRST_DATA_BLOCK;
-        // inode.i_acl_blk_addr = inode.i_addr[0] + 1;
-        // acl = ux_posix_acl_from_mode(inode.i_mode);
-        // acl_in_fs = ux_acl_to_disk(acl, &inode.i_default_acl_size);
 
         lseek(devfd, UX_INODE_BLOCK * UX_BSIZE + 1024, SEEK_SET);
         write(devfd, (char *)&inode, sizeof(struct ux_superblock));
-        // lseek(devfd, inode.i_acl_blk_addr * UX_BSIZE + UX_DEFAULT_ACL_OFFSET, SEEK_SET);
-        // write(devfd, (char *)acl_in_fs, inode.i_default_acl_size);
 
         memset((void *)&inode, 0 , sizeof(struct ux_inode));
         inode.i_mode = S_IFDIR | 0755;
@@ -169,15 +127,10 @@ int main(int argc, char **argv)
         inode.i_size = UX_BSIZE;
         inode.i_blocks = 1;
         inode.i_addr[0] = UX_FIRST_DATA_BLOCK + 1;
-        // inode.i_acl_blk_addr = inode.i_addr[0] + 1;
-        // acl = ux_posix_acl_from_mode(inode.i_mode);
-        // acl_in_fs = ux_acl_to_disk(acl, &inode.i_access_acl_size);
         
 
         lseek(devfd, UX_INODE_BLOCK * UX_BSIZE + 1536, SEEK_SET);
         write(devfd, (char *)&inode, sizeof(struct ux_superblock));
-        // lseek(devfd, inode.i_acl_blk_addr * UX_BSIZE + UX_ACCESS_ACL_OFFSET, SEEK_SET);
-        // write(devfd, (char *)acl_in_fs, inode.i_access_acl_size);
 
         /*
          * Fill in the directory entries for root 

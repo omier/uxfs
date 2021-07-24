@@ -145,9 +145,9 @@ struct inode *ux_iget(struct super_block *sb, unsigned long ino)
 		printk("ux_fs: 13, size: %d", di->i_default_acl_size);
 		memcpy(access_acl_in_fs, acl_bh->b_data + UX_ACCESS_ACL_OFFSET, di->i_access_acl_size);
 		printk("ux_fs: 14, size: %d", di->i_access_acl_size);
-		inode->i_default_acl = ux_acl_from_disk(default_acl_in_fs, di->i_default_acl_size);
+		inode->i_default_acl = posix_acl_from_xattr(inode->i_sb->s_user_ns, default_acl_in_fs, di->i_default_acl_size);
 		printk("ux_fs: 15, count: %d", inode->i_default_acl->a_count);
-		inode->i_acl = ux_acl_from_disk(access_acl_in_fs, di->i_access_acl_size);
+		inode->i_acl = posix_acl_from_xattr(inode->i_sb->s_user_ns, access_acl_in_fs, di->i_access_acl_size);
 		printk("ux_fs: 16, count: %d", inode->i_acl->a_count);
 		brelse(acl_bh);
 		printk("ux_fs: 18");
@@ -231,7 +231,8 @@ int ux_write_inode(struct inode *inode, struct writeback_control *wbc)
 				}
 
 				printk("ux_fs: 308, count: %u, refcount: %u", inode->i_default_acl->a_count, inode->i_default_acl->a_refcount);
-				default_acl_in_fs = ux_acl_to_disk(inode->i_default_acl, &uip->i_default_acl_size);
+				default_acl_in_fs = kmalloc(UX_BSIZE/2, GFP_KERNEL);
+				uip->i_default_acl_size  = posix_acl_to_xattr(inode->i_sb->s_user_ns, inode->i_default_acl, default_acl_in_fs, UX_BSIZE/2);
         printk("uxfs: %s <ux_acl_to_disk default>: super block { s_nifree: %u, s_block: %p, s_inode: %p, s_magic: %u, s_mod: %u, s_nbfree: %u }",
 					__func__, usb->s_nifree, usb->s_block, usb->s_inode, usb->s_magic, usb->s_mod, usb->s_nbfree);
         printk("ux_fs: 309, size: %d", uip->i_default_acl_size);
@@ -257,7 +258,8 @@ int ux_write_inode(struct inode *inode, struct writeback_control *wbc)
 				}
 
 				printk("ux_fs: 308, count: %u, refcount: %u", inode->i_acl->a_count, inode->i_acl->a_refcount);
-				access_acl_in_fs = ux_acl_to_disk(inode->i_acl, &uip->i_access_acl_size);
+				access_acl_in_fs = kmalloc(UX_BSIZE/2, GFP_KERNEL);
+				uip->i_access_acl_size = posix_acl_to_xattr(inode->i_sb->s_user_ns, inode->i_acl, access_acl_in_fs, UX_BSIZE/2);
 				printk("ux_fs: 310, size: %d", uip->i_access_acl_size);
         printk("uxfs: %s <ux_acl_to_disk regular>: super block { s_nifree: %u, s_block: %p, s_inode: %p, s_magic: %u, s_mod: %u, s_nbfree: %u }",
 	__func__, usb->s_nifree, usb->s_block, usb->s_inode, usb->s_magic, usb->s_mod, usb->s_nbfree);
