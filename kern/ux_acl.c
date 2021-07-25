@@ -9,16 +9,16 @@
 
 struct posix_acl* ux_get_acl(struct inode *inode, int type)
 {
-	struct ux_inode* uip = (struct ux_inode*)inode->i_private;
+	struct ux_inode* uip;
 	struct buffer_head* acl_bh;
 	struct posix_acl *acl;
-	int error;
 	void *default_acl_in_fs, *access_acl_in_fs;
 
 	if (!inode) {
-		return -EINVAL;
+		return ERR_PTR(-EINVAL);
 	}
 
+	uip = (struct ux_inode*)inode->i_private;
 	if (!uip->i_acl_blk_addr) {
 		uip->i_acl_blk_addr = ux_data_alloc(inode->i_sb);
 	}
@@ -51,7 +51,7 @@ struct posix_acl* ux_get_acl(struct inode *inode, int type)
 
 static int __ux_set_acl(struct inode *inode, struct posix_acl *acl, int type)
 {
-	struct ux_inode* uip = (struct ux_inode*)inode->i_private;
+	struct ux_inode* uip;
 	struct buffer_head* acl_bh;
 	int error;
 	void *default_acl_in_fs, *access_acl_in_fs;
@@ -64,13 +64,14 @@ static int __ux_set_acl(struct inode *inode, struct posix_acl *acl, int type)
 		return -EINVAL;
 	}
 
+	uip = (struct ux_inode*)inode->i_private;
 	if (!uip->i_acl_blk_addr) {
 		uip->i_acl_blk_addr = ux_data_alloc(inode->i_sb);
 	}
 
 	acl_bh = sb_bread(inode->i_sb, uip->i_acl_blk_addr);
 	if (!acl_bh) {
-		return ERR_PTR(-EIO);
+		return -EIO;
 	}
 
 	switch(type) {
@@ -83,7 +84,6 @@ static int __ux_set_acl(struct inode *inode, struct posix_acl *acl, int type)
 			access_acl_in_fs = kmalloc(UX_BSIZE/2, GFP_KERNEL);
 			uip->i_access_acl_size = posix_acl_to_xattr(inode->i_sb->s_user_ns, acl, access_acl_in_fs, UX_BSIZE/2);
 			memcpy(acl_bh->b_data + UX_ACCESS_ACL_OFFSET, access_acl_in_fs, uip->i_access_acl_size);
-			
 			break;
 
 		case ACL_TYPE_DEFAULT:
@@ -93,15 +93,12 @@ static int __ux_set_acl(struct inode *inode, struct posix_acl *acl, int type)
 			
 			error = posix_acl_valid(inode->i_sb->s_user_ns, acl);
 			if (error) {
-				
 				return error;
 			}
 				
 			default_acl_in_fs = kmalloc(UX_BSIZE/2, GFP_KERNEL);
-			uip->i_default_acl_size  = posix_acl_to_xattr(inode->i_sb->s_user_ns, acl, default_acl_in_fs, UX_BSIZE/2);
-			
+			uip->i_default_acl_size  = posix_acl_to_xattr(inode->i_sb->s_user_ns, acl, default_acl_in_fs, UX_BSIZE/2);		
 			memcpy(acl_bh->b_data + UX_DEFAULT_ACL_OFFSET, default_acl_in_fs, uip->i_default_acl_size);
-			
 			break;
 
 		default:
@@ -111,7 +108,6 @@ static int __ux_set_acl(struct inode *inode, struct posix_acl *acl, int type)
 
 	mark_buffer_dirty(acl_bh);
 	brelse(acl_bh);
-	mark_inode_dirty(inode);
 	set_cached_acl(inode, type, acl);
 	
 	return 0;
@@ -171,7 +167,6 @@ int ux_init_acl(struct inode *inode, struct inode *dir)
 		if (!error) {
 			error = __ux_set_acl(inode, acl, ACL_TYPE_ACCESS);
 		}
-		
 		posix_acl_release(acl);
 	}
 

@@ -153,16 +153,13 @@ int ux_write_inode(struct inode *inode, struct writeback_control *wbc)
 	void* access_acl_in_fs;
 	int error = 0;
 
-	struct ux_fs *fs = (struct ux_fs *)inode->i_sb->s_fs_info;
-	struct ux_superblock *usb = fs->u_sb;
-
 	if (ino < UX_ROOT_INO || ino > UX_MAXFILES) {
 		return -EIO;
 	}
 
 	bh = sb_bread(inode->i_sb, UX_INODE_BLOCK + ino);
 	if (!bh) {
-		return ERR_PTR(-EIO);
+		return -EIO;
 	}
 
 	uip->i_mode = inode->i_mode;
@@ -179,7 +176,7 @@ int ux_write_inode(struct inode *inode, struct writeback_control *wbc)
 		acl_bh = sb_bread(inode->i_sb, uip->i_acl_blk_addr);
 		
 		if (!acl_bh) {
-			return ERR_PTR(-EIO);
+			return -EIO;
 		}
 
 		if (inode->i_default_acl) {
